@@ -8,11 +8,17 @@ const signupUser = async (req, res) => {
   try {
     const { name, email, phone, password, classLevel } = req.body;
 
-    // Check if a user with this email already exists
-    const userExists = await User.findOne({ email });
+    // Check if a user with this email or phone no. already exists
+    const userExists = await User.findOne({
+       $or: [
+         { email },
+         { phone }
+        ],
+     });
     if (userExists) {
-      return res.status(400).json({ message: 'User with this email already exists' });
+      return res.status(400).json({ message: 'User with this email or phone number already exists' });
     }
+   
 
     // Create the new user
     // We strictly set role to 'student' and status to 'pending'

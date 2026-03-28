@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
-
+const adminRoutes = require('./routes/admin.routes');
 // Import routes
 const authRoutes = require('./routes/auth.routes');
 
@@ -37,5 +37,7 @@ app.get('/', (req, res) => {
 // Mount the authentication routes
 app.use('/api/auth', authRoutes);
 
+//routes for admin only
+app.use('/api/admin', adminRoutes);
 // Export the configured app so it can be used in server.js
 module.exports = app;
