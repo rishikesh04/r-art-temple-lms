@@ -9,6 +9,7 @@ import testRoutes from './routes/test.routes.js';
 import attemptsRoutes from './routes/attempt.routes.js'
 import leaderboardRoutes from './routes/leaderboard.routes.js'
 import analyticsRoutes from './routes/analytics.routes.js'
+import studentDashboardRoutes from './routes/studentDashboard.routes.js'
 
 // Initialize Express app
 const app = express();
@@ -59,6 +60,9 @@ app.use('/api/leaderboard', leaderboardRoutes)
 
 //api for student analytics 
 app.use('/api/analytics', analyticsRoutes)
+
+//api for student dashboard 
+app.use('/api/student/dashboard', studentDashboardRoutes)
 
 
 export default app;
