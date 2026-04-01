@@ -5,7 +5,7 @@ import cookieParser from 'cookie-parser';
 import adminRoutes from './routes/admin.routes.js';
 import authRoutes from './routes/auth.routes.js';
 import questionRoutes from './routes/question.routes.js';
-
+import testRoutes from './routes/test.routes.js';
 
 // Initialize Express app
 const app = express();
@@ -44,6 +44,9 @@ app.use('/api/admin', adminRoutes);
 
 //routes for questions
 app.use('/api/questions/',questionRoutes)
+
+//create test api
+app.use('/api/tests', testRoutes)
 
 // Export the configured app so it can be used in server.js
 export default app;
