@@ -6,10 +6,11 @@ import adminRoutes from './routes/admin.routes.js';
 import authRoutes from './routes/auth.routes.js';
 import questionRoutes from './routes/question.routes.js';
 import testRoutes from './routes/test.routes.js';
-import attemptsRoutes from './routes/attempt.routes.js'
-import leaderboardRoutes from './routes/leaderboard.routes.js'
-import analyticsRoutes from './routes/analytics.routes.js'
-import studentDashboardRoutes from './routes/studentDashboard.routes.js'
+import attemptsRoutes from './routes/attempt.routes.js';
+import leaderboardRoutes from './routes/leaderboard.routes.js';
+import analyticsRoutes from './routes/analytics.routes.js';
+import studentDashboardRoutes from './routes/studentDashboard.routes.js';
+import adminDashboardRoutes from  './routes/adminDashboard.routes.js';
 
 // Initialize Express app
 const app = express();
@@ -63,6 +64,9 @@ app.use('/api/analytics', analyticsRoutes)
 
 //api for student dashboard 
 app.use('/api/student/dashboard', studentDashboardRoutes)
+
+//api for admin dashboard 
+app.use('/api/admin/dashboard', adminDashboardRoutes)
 
 
 export default app;
