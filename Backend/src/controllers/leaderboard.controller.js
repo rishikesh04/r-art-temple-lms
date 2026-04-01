@@ -36,7 +36,15 @@ export const getTestLeaderboard = async (req, res) => {
         });
       }
     }
-
+     
+    // IMPORTANT: Students cannot see leaderboard before test ends
+    const now = new Date();
+    if (req.user.role === 'student' && now < new Date(test.endTime)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Leaderboard will be available after the test ends.',
+      });
+    }
     //  Get all attempts for this test
     const attempts = await Attempt.find({ test: testId })
       .populate('student', 'name classLevel')
