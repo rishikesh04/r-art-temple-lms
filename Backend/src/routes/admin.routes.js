@@ -1,12 +1,6 @@
-const express = require('express');
-const {
-  getAllStudents,
-  getPendingStudents,
-  approveStudent,
-  rejectStudent,
-} = require('../controllers/admin.controller');
-
-const { protect, isAdmin } = require('../middlewares/auth.middleware');
+import express from 'express';
+import { getAllStudents, getPendingStudents, approveStudent, rejectStudent } from '../controllers/admin.controller.js';
+import { protect, isAdmin } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
@@ -26,4 +20,4 @@ router.patch('/students/:id/approve', approveStudent);
 // Reject a student
 router.patch('/students/:id/reject', rejectStudent);
 
-module.exports = router;
+export default router;

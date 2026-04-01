@@ -1,12 +1,6 @@
-const express = require('express');
-const {
-  createQuestion,
-  getAllQuestions,
-  getQuestionById,
-  updateQuestion,
-  deleteQuestion,
-} = require('../controllers/question.controller');
-const { protect, isAdmin } = require('../middlewares/auth.middleware');
+import express from 'express';
+import { createQuestion, getAllQuestions, getQuestionById, updateQuestion, deleteQuestion } from '../controllers/question.controller.js';
+import { protect, isAdmin } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
@@ -20,4 +14,4 @@ router.get('/:id', protect, getQuestionById);
 router.patch('/:id', protect, isAdmin, updateQuestion);
 router.delete('/:id', protect, isAdmin, deleteQuestion);
 
-module.exports = router;
+export default router;

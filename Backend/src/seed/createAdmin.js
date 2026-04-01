@@ -1,7 +1,6 @@
-const dotenv = require('dotenv');
-const User = require('../models/user.model');
-// Assuming your database connection function will be named index.js or db.js inside the db folder
-const connectDB = require('../db/db'); 
+import dotenv from 'dotenv';
+import User from '../models/user.model.js';
+import connectDB from '../db/db.js';
 
 // Load environment variables (assumes script is run from the root folder where .env is located)
 dotenv.config();

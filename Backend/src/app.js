@@ -1,10 +1,10 @@
-const express = require('express');
-const cors = require('cors');
-const cookieParser = require('cookie-parser');
+import express from 'express';
+import cors from 'cors';
+import cookieParser from 'cookie-parser';
 // Import routes
-const adminRoutes = require('./routes/admin.routes');
-const authRoutes = require('./routes/auth.routes');
-const questionRoutes = require('./routes/question.routes')
+import adminRoutes from './routes/admin.routes.js';
+import authRoutes from './routes/auth.routes.js';
+import questionRoutes from './routes/question.routes.js';
 
 
 // Initialize Express app
@@ -46,4 +46,4 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/questions/',questionRoutes)
 
 // Export the configured app so it can be used in server.js
-module.exports = app;
+export default app;

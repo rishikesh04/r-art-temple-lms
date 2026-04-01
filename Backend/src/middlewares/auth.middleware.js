@@ -1,5 +1,5 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/user.model');
+import jwt from 'jsonwebtoken';
+import User from '../models/user.model.js';
 
 // Middleware to protect routes and verify the logged-in user
 const protect = async (req, res, next) => {
@@ -46,7 +46,4 @@ const isAdmin = (req, res, next) => {
   }
 };
 
-module.exports = {
-  protect,
-  isAdmin,
-};
+export { protect, isAdmin };

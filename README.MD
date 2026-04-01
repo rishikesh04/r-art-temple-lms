@@ -116,8 +116,8 @@ Class → Subject → Chapter → Test
 
 ```text
 r-art-temple-lms/
-├── client/     # React frontend
-├── server/     # Node.js backend
+├── Frontend/     # React frontend
+├── Backend/     # Node.js backend
 ├── docs/       # Project planning and technical docs
 ├── .gitignore
 └── README.md

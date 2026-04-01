@@ -1,4 +1,4 @@
-const Question = require('../models/question.model');
+import Question from '../models/question.model.js';
 
 // @desc    Create a new question
 // @route   POST /api/questions
@@ -170,10 +170,4 @@ const deleteQuestion = async (req, res) => {
   }
 };
 
-module.exports = {
-  createQuestion,
-  getAllQuestions,
-  getQuestionById,
-  updateQuestion,
-  deleteQuestion,
-};
+export { createQuestion, getAllQuestions, getQuestionById, updateQuestion, deleteQuestion };

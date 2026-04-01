@@ -1,5 +1,5 @@
-const User = require('../models/user.model');
-const generateToken = require('../utils/generateToken');
+import User from '../models/user.model.js';
+import generateToken from '../utils/generateToken.js';
 
 // @desc    Register a new student
 // @route   POST /api/auth/signup
@@ -135,9 +135,4 @@ const getCurrentUser = async (req, res) => {
   }
 };
 
-module.exports = {
-  signupUser,
-  loginUser,
-  logoutUser,
-  getCurrentUser,
-};
+export { signupUser, loginUser, logoutUser, getCurrentUser };

@@ -1,4 +1,4 @@
-const User = require('../models/user.model');
+import User from '../models/user.model.js';
 
 // @desc    Get all students
 // @route   GET /api/admin/students
@@ -153,9 +153,4 @@ const rejectStudent = async (req, res) => {
   }
 };
 
-module.exports = {
-  getAllStudents,
-  getPendingStudents,
-  approveStudent,
-  rejectStudent,
-};
+export { getAllStudents, getPendingStudents, approveStudent, rejectStudent };

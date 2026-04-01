@@ -1,11 +1,6 @@
-const express = require('express');
-const {
-  signupUser,
-  loginUser,
-  logoutUser,
-  getCurrentUser,
-} = require('../controllers/auth.controller');
-const { protect } = require('../middlewares/auth.middleware');
+import express from 'express';
+import { signupUser, loginUser, logoutUser, getCurrentUser } from '../controllers/auth.controller.js';
+import { protect } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
@@ -29,4 +24,4 @@ router.post('/logout', logoutUser);
 // @access  Private (Requires valid JWT cookie)
 router.get('/me', protect, getCurrentUser);
 
-module.exports = router;
+export default router;
