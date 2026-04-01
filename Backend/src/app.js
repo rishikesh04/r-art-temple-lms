@@ -7,6 +7,7 @@ import authRoutes from './routes/auth.routes.js';
 import questionRoutes from './routes/question.routes.js';
 import testRoutes from './routes/test.routes.js';
 import attemptsRoutes from './routes/attempt.routes.js'
+import leaderboardRoutes from './routes/leaderboard.routes.js'
 
 // Initialize Express app
 const app = express();
@@ -51,6 +52,9 @@ app.use('/api/tests', testRoutes)
 
 //api for submitting test
 app.use('/api/attempts', attemptsRoutes)
+
+//api for getting particular test leaderboard
+app.use('/api/leaderboard', leaderboardRoutes)
 
 
 export default app;
