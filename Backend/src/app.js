@@ -11,6 +11,7 @@ import leaderboardRoutes from './routes/leaderboard.routes.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import studentDashboardRoutes from './routes/studentDashboard.routes.js';
 import adminDashboardRoutes from  './routes/adminDashboard.routes.js';
+import testAttendanceRoutes from './routes/testAttendance.routes.js';
 
 // Initialize Express app
 const app = express();
@@ -67,6 +68,9 @@ app.use('/api/student/dashboard', studentDashboardRoutes)
 
 //api for admin dashboard 
 app.use('/api/admin/dashboard', adminDashboardRoutes)
+
+//api for admin to seen info about test attendancea
+app.use('/api/admin/tests', testAttendanceRoutes )
 
 
 export default app;
