@@ -4,6 +4,7 @@ import {
   getMyAttempts,
   getMyAttemptById,
   getAllAttempts,
+  getAttemptReview
 } from '../controllers/attempt.controller.js';
 import { protect, isAdmin,  } from '../middlewares/auth.middleware.js';
 
@@ -13,7 +14,7 @@ const router = express.Router();
 router.post('/submit/:testId', protect,  submitTest);
 router.get('/my-attempts', protect,  getMyAttempts);
 router.get('/my-attempts/:id', protect,  getMyAttemptById);
-
+router.get('/:attemptId/review', protect, getAttemptReview);
 // Admin-only route
 router.get('/', protect, isAdmin, getAllAttempts);
 

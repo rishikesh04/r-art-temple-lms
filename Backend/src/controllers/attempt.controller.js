@@ -318,3 +318,131 @@ export const getAllAttempts = async (req, res) => {
     });
   }
 };
+
+// @desc    Get detailed review of a specific attempt (with time-lock for students)
+// @route   GET /api/attempts/:attemptId/review
+// @access  Private (Student & Admin)
+export const getAttemptReview = async (req, res) => {
+  try {
+    const { attemptId } = req.params;
+
+    const attempt = await Attempt.findById(attemptId)
+      .populate({
+        path: 'test',
+        select: 'title subject chapter endTime',
+      })
+      .populate({
+        path: 'answers.question',
+        select: 'questionText options correctAnswer explanation',
+      })
+      .lean();
+
+    if (!attempt) {
+      return res.status(404).json({
+        success: false,
+        message: 'Attempt not found',
+      });
+    }
+
+    const isStudent = req.user.role === 'student';
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isStudent && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied',
+      });
+    }
+
+    // Student-specific restrictions
+    if (isStudent) {
+      // Student can only review their own attempt
+      if (attempt.student.toString() !== req.user._id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only review your own attempts',
+        });
+      }
+
+      // Student can review only after test ends
+      if (attempt.test) {
+        const now = new Date();
+        const testEndTime = new Date(attempt.test.endTime);
+
+        if (now < testEndTime) {
+          return res.status(403).json({
+            success: false,
+            message:
+              'Test review is locked. You can view answers and explanations only after the test has ended.',
+          });
+        }
+      }
+    }
+
+    const safeAnswers = attempt.answers.map((ans) => {
+      const q = ans.question;
+
+      if (!q) {
+        return {
+          questionId: null,
+          questionText: 'This question was removed by the administrator.',
+          options: [],
+          selectedAnswer: ans.selectedAnswer,
+          correctAnswer: null,
+          explanation: null,
+          isCorrect: ans.isCorrect,
+        };
+      }
+
+      return {
+        questionId: q._id,
+        questionText: q.questionText,
+        options: q.options,
+        selectedAnswer: ans.selectedAnswer,
+        correctAnswer: q.correctAnswer,
+        explanation: q.explanation || null,
+        isCorrect: ans.isCorrect,
+      };
+    });
+
+    const reviewData = {
+      attemptId: attempt._id,
+      score: attempt.score,
+      totalQuestions: attempt.totalQuestions,
+      submittedAt: attempt.createdAt,
+      test: attempt.test
+        ? {
+            id: attempt.test._id,
+            title: attempt.test.title,
+            subject: attempt.test.subject,
+            chapter: attempt.test.chapter,
+          }
+        : {
+            id: null,
+            title: 'Deleted Test',
+            subject: 'N/A',
+            chapter: 'N/A',
+          },
+      answers: safeAnswers,
+    };
+
+    return res.status(200).json({
+      success: true,
+      message: 'Attempt review fetched successfully',
+      data: reviewData,
+    });
+  } catch (error) {
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid attempt ID format',
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while fetching attempt review',
+      error: error.message,
+    });
+  }
+};
