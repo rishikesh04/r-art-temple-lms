@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+@theme {
+  /* Exact Colors from your Reference Images */
+  --color-brand-400: #E075FF; /* Bright Neon Purple */
+  --color-brand-500: #8B31FF; /* Deep Purple Core */
+  --color-brand-900: #0D0518; /* Deep Space Background */
+  
+  --color-accent-400: #00F0FF; /* Cyber Cyan */
+  --color-accent-warning: #FFB800; /* XP Bar Gold */
+
+  --color-surface-dark: #120A20;
+  --color-surface-light: #1E1233;
+
+  --font-sans: 'Rajdhani', system-ui, sans-serif;
+}
+
+body {
+  background-color: var(--color-brand-900);
+  color: #ffffff;
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+}
+
+/* 
+  These are the magic classes! 
+  They cut the corners off squares to make them look like futuristic mech panels.
+*/
+@utility clip-chamfer {
+  clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
+}
+
+@utility clip-mech-left {
+  clip-path: polygon(0 0, 100% 0, 100% 30%, 80% 50%, 100% 70%, 100% 100%, 0 100%);
+}
+
+@utility clip-mech-right {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 70%, 20% 50%, 0 30%);
+}
+
+@utility glow-purple {
+  box-shadow: 0 0 30px rgba(139, 49, 255, 0.3);
+}
+
+@utility text-glow {
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
+}

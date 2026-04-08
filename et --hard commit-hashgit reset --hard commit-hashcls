@@ -1,0 +1,15 @@
+[33m3415a14[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m feat: implement secure attempt review with post-test answer lock
+[33m018a739[m feat: add admin test attendance and insgihts api
+[33m6e2d381[m feat: add admin dashboard.
+[33m31720bc[m feat: add student dashboard.
+[33m8805466[m feat: lock results and leaderboard until test ends
+[33m8408211[m feat: add student analytic overview endpoint
+[33m37061a3[m feat: add test leaderboard ranking system
+[33maa0dd12[m feat: implement secure test attempt and submission flow
+[33m8f3f334[m feat: add secure test module with role-based access
+[33m4f70030[m[33m ([m[1;32mrefactor/es-modules[m[33m)[m refactor: migrate backend from CommonJS to ES modules
+[33mdf799e6[m feat: build question bank management module
+[33m1f8491b[m feat: add admin student approval workflow
+[33m3692e5a[m feat: implement backend auth system and admin seeding
+[33md2b53ac[m chore: add placeholder files for client and server structure
+[33md4c440e[m docs: add initial README and project architecture
