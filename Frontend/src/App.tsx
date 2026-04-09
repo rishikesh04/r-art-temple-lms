@@ -1,8 +1,9 @@
 import { Routes, Route, Link } from 'react-router-dom';
 import Home from './pages/Home';
-import Login from './pages/Login'; // 1. Import our new Login page
-import ProtectedRoute from './components/ProtectedRoute'; // 2. Import our Bouncer
-import { useAuth } from './context/AuthContext'; // 3. Import our hook to check who is logged in
+import Login from './pages/Login'; 
+import ProtectedRoute from './components/ProtectedRoute'; 
+import { useAuth } from './context/AuthContext'; 
+import AdminDashboard from './pages/Admin/AdminDashboard';
 
 function App() {
   // 4. This asks the AuthContext: "Hey, is anyone logged in? And give me the logout function!"
@@ -58,7 +59,7 @@ function App() {
           {/* Protected Page: Only Admins can see this */}
           <Route path="/admin" element={
             <ProtectedRoute allowedRole="admin">
-              <div className="p-20 text-center text-4xl font-black uppercase">Admin Panel Coming Next</div>
+             <AdminDashboard /> 
             </ProtectedRoute>
           } />
         </Routes>
