@@ -1,7 +1,15 @@
 import { motion } from 'framer-motion';
+import type { Variants } from 'framer-motion';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
+import InnovationVideo from '../assets/Innovation (1).mp4';
+import Beaker from '../assets/beaker chemistry-bro.svg';
 
 export default function Home() {
-  const containerVariants = {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const containerVariants: Variants = {
     hidden: { opacity: 0 },
     show: {
       opacity: 1,
@@ -9,13 +17,50 @@ export default function Home() {
     }
   };
 
-  const cardVariants = {
+  const cardVariants: Variants = {
     hidden: { opacity: 0, y: 50 },
-    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100 } }
+    show: { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 100 } }
   };
 
+  // SPA-friendly: when navigating back to '/', restart video
+  useEffect(() => {
+    if (location.pathname !== '/') return;
+    const v = videoRef.current;
+    if (!v) return;
+    try {
+      v.currentTime = 0;
+      const p = v.play();
+      if (p && typeof (p as Promise<void>).catch === 'function') {
+        (p as Promise<void>).catch(() => {
+          // autoplay might be blocked; ignore silently
+        });
+      }
+    } catch {
+      // ignore
+    }
+  }, [location.pathname]);
+
   return (
-    <main className="w-full max-w-7xl mx-auto px-6 py-16 md:py-24 overflow-hidden">
+    <main className="w-full max-w-7xl mx-auto px-6 py-16 md:py-24 overflow-hidden relative">
+      {/* Orange corner fills (FF5722) like your sketch */}
+      <div
+        className="pointer-events-none absolute left-0 bottom-0 h-44 w-64 bg-brand-orange/25"
+        style={{
+          borderTopRightRadius: 80,
+          backgroundImage:
+            'repeating-linear-gradient(135deg, rgba(17,17,17,0.28) 0px, rgba(17,17,17,0.28) 6px, rgba(255,87,34,0.0) 6px, rgba(255,87,34,0.0) 14px)',
+        }}
+        aria-hidden="true"
+      />
+      <div
+        className="pointer-events-none absolute right-0 top-0 h-44 w-64 bg-brand-orange/25"
+        style={{
+          borderBottomLeftRadius: 80,
+          backgroundImage:
+            'repeating-linear-gradient(135deg, rgba(17,17,17,0.28) 0px, rgba(17,17,17,0.28) 6px, rgba(255,87,34,0.0) 6px, rgba(255,87,34,0.0) 14px)',
+        }}
+        aria-hidden="true"
+      />
       
       {/* Hero Section */}
       <div className="flex flex-col lg:flex-row items-center justify-between gap-12 mb-24">
@@ -42,68 +87,33 @@ export default function Home() {
             The ultimate digital arena for approved students. Take rigorous tests, analyze your performance, and climb the ranks in a distraction-free environment.
           </p>
           <div className="flex gap-4">
-            <button className="px-8 py-4 bg-brand-orange border-2 border-brand-black font-bold text-lg shadow-solid hover:-translate-y-1 hover:-translate-x-1 hover:shadow-solid-hover active:translate-y-0 active:translate-x-0 active:shadow-none transition-all">
+            <button
+              onClick={() => navigate('/signup')}
+              className="px-8 py-4 bg-brand-orange border-2 border-brand-black font-bold text-lg shadow-solid hover:-translate-y-1 hover:-translate-x-1 hover:shadow-solid-hover active:translate-y-0 active:translate-x-0 active:shadow-none transition-all"
+            >
               Join the Platform
             </button>
           </div>
         </motion.div>
 
-        {/* Right Side: Animated Math & Science Graphic */}
-        <motion.div 
-          className="w-full lg:w-1/2 relative h-[400px] flex items-center justify-center"
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-        >
-          {/* Main Floating Container */}
-          <motion.div 
-            animate={{ y: [-12, 12, -12] }} 
-            transition={{ repeat: Infinity, duration: 4.5, ease: "easeInOut" }}
-            className="relative w-72 h-72"
-          >
-            {/* Orange Backdrop Square */}
-            <div className="absolute inset-0 bg-brand-orange border-[6px] border-brand-black rounded-3xl rotate-6 shadow-solid"></div>
-            
-            {/* White Front Square */}
-            <div className="absolute inset-0 bg-white border-[6px] border-brand-black rounded-3xl -rotate-3 shadow-solid flex flex-col items-center justify-center overflow-hidden">
-                
-                {/* The Pi Symbol (Math) */}
-                <div className="absolute top-4 left-6 text-6xl font-black text-brand-black drop-shadow-[3px_3px_0_rgba(255,87,34,1)]">π</div>
-
-                {/* The Atom (Science) */}
-                <svg className="w-32 h-32 text-brand-black z-10" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="6">
-                  <ellipse cx="50" cy="50" rx="40" ry="15" transform="rotate(30 50 50)" />
-                  <ellipse cx="50" cy="50" rx="40" ry="15" transform="rotate(-30 50 50)" />
-                  <circle cx="50" cy="50" r="8" fill="currentColor" />
-                </svg>
-
-                {/* The Triangle Ruler (Math) */}
-                <svg className="absolute bottom-[-10px] right-[-10px] w-32 h-32 text-brand-orange fill-brand-orange stroke-brand-black" viewBox="0 0 100 100" strokeWidth="6" strokeLinejoin="round">
-                  <path d="M10 90 L90 90 L10 10 Z" />
-                  <circle cx="30" cy="70" r="6" fill="white" stroke="currentColor" strokeWidth="4"/>
-                </svg>
+        {/* Right Side: innovation video (plays once) */}
+        <div className="w-full lg:w-1/2 relative">
+          <div className="relative mx-auto max-w-xl overflow-hidden">
+            <div className="absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-full border-2 border-brand-black bg-brand-orange px-3 py-1 text-xs font-black uppercase tracking-widest text-brand-black shadow-solid-sm">
+              <img src={Beaker} alt="" className="h-5 w-5" />
+              Innovation Lab
             </div>
-            
-            {/* Floating '+' Symbol */}
-            <motion.div 
-              animate={{ y: [0, -15, 0], rotate: [0, 10, 0] }} 
-              transition={{ repeat: Infinity, duration: 3 }} 
-              className="absolute -top-6 -right-6 bg-white border-[4px] border-brand-black w-14 h-14 rounded-full flex items-center justify-center font-bold text-3xl shadow-solid-sm text-brand-orange z-20"
-            >
-              +
-            </motion.div>
 
-            {/* Floating '%' Symbol */}
-            <motion.div 
-              animate={{ y: [0, 15, 0], rotate: [0, -10, 0] }} 
-              transition={{ repeat: Infinity, duration: 3.5, delay: 0.5 }} 
-              className="absolute -bottom-4 -left-6 bg-brand-orange border-[4px] border-brand-black w-14 h-14 rounded-full flex items-center justify-center font-bold text-2xl shadow-solid-sm text-white z-20"
-            >
-              %
-            </motion.div>
-
-          </motion.div>
-        </motion.div>
+            <video
+              src={InnovationVideo}
+              autoPlay
+              muted
+              playsInline
+              ref={videoRef}
+              className="h-[360px] w-full object-cover rounded-2xl"
+            />
+          </div>
+        </div>
 
       </div>
 
