@@ -26,7 +26,7 @@ export const getStudentDashboard = async (req, res) => {
 
     //  Fetch all attempts for this student
     const attempts = await Attempt.find({ student: req.user._id })
-      .populate({ path: 'test', select: 'title' })
+      .populate({ path: 'test', select: 'title endTime' })
       .sort({ createdAt: -1 })
       .lean();
 
@@ -38,18 +38,26 @@ export const getStudentDashboard = async (req, res) => {
     //  Calculate stats
     const completedTestsCount = attempts.length;
 
-    // MVP: average raw score across attempts
-    const totalScore = attempts.reduce((acc, current) => acc + current.score, 0);
-
-    const averageScore =
-      completedTestsCount > 0 ? Number((totalScore / completedTestsCount).toFixed(2)) : 0;
+    // Average score should only be visible after a test ends (backend-enforced)
+    const endedAttempts = attempts.filter(
+      (a) => a.test && a.test.endTime && now > new Date(a.test.endTime)
+    );
+    const endedCount = endedAttempts.length;
+    const totalScore = endedAttempts.reduce((acc, current) => acc + (current.score || 0), 0);
+    const averageScore = endedCount > 0 ? Number((totalScore / endedCount).toFixed(2)) : null;
 
     //  Recent attempts
     const recentAttempts = attempts.slice(0, 5).map((attempt) => ({
       attemptId: attempt._id,
       testTitle: attempt.test ? attempt.test.title : 'Deleted Test',
-      score: attempt.score,
-      totalQuestions: attempt.totalQuestions,
+      score:
+        attempt.test && attempt.test.endTime && now > new Date(attempt.test.endTime)
+          ? attempt.score
+          : null,
+      totalQuestions:
+        attempt.test && attempt.test.endTime && now > new Date(attempt.test.endTime)
+          ? attempt.totalQuestions
+          : null,
       submittedAt: attempt.createdAt,
     }));
 

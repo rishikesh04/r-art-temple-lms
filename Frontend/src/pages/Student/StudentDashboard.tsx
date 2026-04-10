@@ -8,7 +8,7 @@ type DashboardResponse = {
   data: {
     stats: {
       completedTestsCount: number;
-      averageScore: number;
+      averageScore: number | null;
       availableTestsCount: number;
       upcomingTestsCount: number;
     };
@@ -35,8 +35,8 @@ type DashboardResponse = {
     recentAttempts: Array<{
       attemptId: string;
       testTitle: string;
-      score: number;
-      totalQuestions: number;
+      score: number | null;
+      totalQuestions: number | null;
       submittedAt: string;
     }>;
   };
@@ -87,7 +87,10 @@ export default function StudentDashboard() {
             {/* Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-10">
               <StatCard label="Completed" value={data.data.stats.completedTestsCount} />
-              <StatCard label="Average Score" value={data.data.stats.averageScore} />
+              <StatCard
+                label="Average Score"
+                value={data.data.stats.averageScore === null ? 'Locked' : data.data.stats.averageScore}
+              />
               <StatCard label="Available" value={data.data.stats.availableTestsCount} />
               <StatCard label="Upcoming" value={data.data.stats.upcomingTestsCount} />
             </div>
@@ -140,7 +143,11 @@ export default function StudentDashboard() {
                 ) : (
                   <div className="space-y-3">
                     {data.data.recentAttempts.slice(0, 5).map((a) => (
-                      <div key={a.attemptId} className="border-2 border-brand-black p-4 bg-white shadow-solid-sm">
+                      <Link
+                        key={a.attemptId}
+                        to={`/attempts/${a.attemptId}`}
+                        className="block border-2 border-brand-black p-4 bg-white shadow-solid-sm hover:-translate-y-1 hover:-translate-x-1 hover:shadow-solid transition-all"
+                      >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <div className="font-black uppercase truncate">{a.testTitle}</div>
@@ -149,11 +156,15 @@ export default function StudentDashboard() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className="text-xl font-black text-brand-orange">{a.score}</div>
-                            <div className="text-xs font-bold text-brand-black/70">{a.totalQuestions} Q</div>
+                            <div className="text-xl font-black text-brand-orange">
+                              {a.score === null ? 'Locked' : a.score}
+                            </div>
+                            <div className="text-xs font-bold text-brand-black/70">
+                              {a.totalQuestions === null ? '—' : `${a.totalQuestions} Q`}
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      </Link>
                     ))}
                   </div>
                 )}

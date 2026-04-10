@@ -39,6 +39,13 @@ const formatTime = (seconds: number) => {
   return `${mm}:${ss}`;
 };
 
+type AttemptDraft = {
+  testId: string;
+  startedAt: number; // epoch ms
+  activeIndex: number;
+  answers: Record<string, number | null>;
+};
+
 export default function AttemptTestPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -46,6 +53,9 @@ export default function AttemptTestPage() {
   const startedAtRef = useRef<number>(Date.now());
   const [activeIndex, setActiveIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number | null>>({});
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const draftKey = useMemo(() => (id ? `attemptDraft:${id}` : null), [id]);
+  const hasRestoredRef = useRef(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['test', id],
@@ -57,24 +67,85 @@ export default function AttemptTestPage() {
   });
 
   const test = data?.success ? data.test : null;
+  const totalAllowedSeconds = useMemo(() => (test ? test.duration * 60 : 0), [test]);
 
-  const totalSeconds = useMemo(() => (test ? test.duration * 60 : 0), [test]);
-  const [remaining, setRemaining] = useState<number>(totalSeconds);
+  const [remaining, setRemaining] = useState<number | null>(null);
+  const [isTimerReady, setIsTimerReady] = useState(false);
 
-  // initialize timer when test loads
+  // Restore draft once (if present) when test loads
   useEffect(() => {
     if (!test) return;
-    startedAtRef.current = Date.now();
-    setRemaining(test.duration * 60);
-  }, [test?._id]);
+    if (!draftKey) return;
+    if (hasRestoredRef.current) return;
+    hasRestoredRef.current = true;
+
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) {
+        startedAtRef.current = Date.now();
+        setRemaining(test.duration * 60);
+        setIsTimerReady(true);
+        return;
+      }
+      const draft = JSON.parse(raw) as AttemptDraft;
+      if (!draft || draft.testId !== test._id) {
+        startedAtRef.current = Date.now();
+        setRemaining(test.duration * 60);
+        setIsTimerReady(true);
+        return;
+      }
+
+      startedAtRef.current = typeof draft.startedAt === 'number' ? draft.startedAt : Date.now();
+      setAnswers(draft.answers || {});
+      setActiveIndex(Math.min(Math.max(0, draft.activeIndex || 0), test.questions.length - 1));
+
+      const elapsed = Math.floor((Date.now() - startedAtRef.current) / 1000);
+      setRemaining(Math.max(0, test.duration * 60 - elapsed));
+      setIsTimerReady(true);
+    } catch {
+      startedAtRef.current = Date.now();
+      setRemaining(test.duration * 60);
+      setIsTimerReady(true);
+    }
+  }, [draftKey, test]);
+
+  // If id changes, allow restore for new test
+  useEffect(() => {
+    hasRestoredRef.current = false;
+    setIsTimerReady(false);
+    setRemaining(null);
+  }, [id]);
 
   useEffect(() => {
     if (!test) return;
+    if (remaining === null) return;
     const timer = window.setInterval(() => {
-      setRemaining((prev) => Math.max(0, prev - 1));
+      setRemaining((prev) => (prev === null ? null : Math.max(0, prev - 1)));
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [test?._id]);
+  }, [test?._id, remaining]);
+
+  // Persist draft (answers + navigation + startedAt)
+  useEffect(() => {
+    if (!test) return;
+    if (!draftKey) return;
+
+    const timeout = window.setTimeout(() => {
+      const draft: AttemptDraft = {
+        testId: test._id,
+        startedAt: startedAtRef.current,
+        activeIndex,
+        answers,
+      };
+      try {
+        localStorage.setItem(draftKey, JSON.stringify(draft));
+      } catch {
+        // ignore storage failures (quota/private mode)
+      }
+    }, 150);
+
+    return () => window.clearTimeout(timeout);
+  }, [answers, activeIndex, draftKey, test?._id]);
 
   const submitMutation = useMutation({
     mutationFn: async (payload: SubmitPayload) => {
@@ -82,6 +153,13 @@ export default function AttemptTestPage() {
       return res.data as { success: boolean; message: string; attempt?: { id: string } };
     },
     onSuccess: () => {
+      if (draftKey) {
+        try {
+          localStorage.removeItem(draftKey);
+        } catch {
+          // ignore
+        }
+      }
       navigate('/dashboard');
     },
   });
@@ -94,10 +172,12 @@ export default function AttemptTestPage() {
     setAnswers((prev) => ({ ...prev, [questionId]: null }));
   };
 
-  const onSubmit = async () => {
+  const submitNow = () => {
     if (!test) return;
+    if (submitMutation.isPending || submitMutation.isSuccess) return;
 
-    const timeTakenSeconds = Math.max(0, Math.floor((Date.now() - startedAtRef.current) / 1000));
+    const rawTaken = Math.max(0, Math.floor((Date.now() - startedAtRef.current) / 1000));
+    const timeTakenSeconds = Math.min(rawTaken, totalAllowedSeconds);
     const payload: SubmitPayload = {
       timeTaken: timeTakenSeconds,
       answers: test.questions.map((q) => ({
@@ -109,14 +189,39 @@ export default function AttemptTestPage() {
     submitMutation.mutate(payload);
   };
 
+  const onSubmitClick = () => {
+    if (!test) return;
+    if (submitMutation.isPending || submitMutation.isSuccess) return;
+    setIsConfirmOpen(true);
+  };
+
   // If timer hits 0, auto-submit once
   useEffect(() => {
     if (!test) return;
+    if (!isTimerReady) return;
     if (remaining !== 0) return;
     if (submitMutation.isPending || submitMutation.isSuccess) return;
-    onSubmit();
+    submitNow();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remaining, test?._id]);
+  }, [remaining, isTimerReady, test?._id]);
+
+  // Warn before tab close/refresh while attempt is active
+  useEffect(() => {
+    if (!test) return;
+    if (!isTimerReady) return;
+    if (submitMutation.isPending || submitMutation.isSuccess) return;
+    if (remaining === null) return;
+    if (remaining === 0) return;
+
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // required for Chrome to show confirmation
+      e.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isTimerReady, remaining, submitMutation.isPending, submitMutation.isSuccess, test?._id]);
 
   if (isLoading) {
     return (
@@ -150,6 +255,10 @@ export default function AttemptTestPage() {
 
   const current = test.questions[activeIndex];
   const selected = current ? (answers[current._id] ?? null) : null;
+  const unansweredCount = test.questions.reduce((acc, q) => {
+    const v = answers[q._id];
+    return v === undefined || v === null ? acc + 1 : acc;
+  }, 0);
 
   return (
     <div className="min-h-[calc(100vh-88px)] px-4 py-6 relative">
@@ -171,11 +280,14 @@ export default function AttemptTestPage() {
 
           <div className="flex items-center gap-3">
             <div className="border-4 border-brand-black bg-white shadow-solid-sm px-4 py-2 font-black uppercase">
-              Time: <span className="text-brand-orange">{formatTime(remaining)}</span>
+              Time:{' '}
+              <span className="text-brand-orange tabular-nums inline-block w-[5ch] text-right">
+                {isTimerReady && remaining !== null ? formatTime(remaining) : '--:--'}
+              </span>
             </div>
             <button
               type="button"
-              onClick={onSubmit}
+              onClick={onSubmitClick}
               disabled={submitMutation.isPending}
               className="px-5 py-3 bg-brand-orange border-2 border-brand-black font-black uppercase shadow-solid-sm hover:-translate-y-1 hover:-translate-x-1 hover:shadow-solid active:translate-y-0 active:translate-x-0 active:shadow-none transition-all disabled:opacity-70"
             >
@@ -187,6 +299,58 @@ export default function AttemptTestPage() {
         {submitMutation.isError ? (
           <div className="mb-4 p-4 bg-red-100 border-2 border-brand-black text-red-700 font-bold shadow-solid-sm">
             {getApiMessage(submitMutation.error, 'Submission failed. Please try again.')}
+          </div>
+        ) : null}
+
+        {/* Submit confirmation modal */}
+        {isConfirmOpen ? (
+          <div className="fixed inset-0 z-50">
+            <button
+              type="button"
+              className="absolute inset-0 bg-brand-black/60"
+              aria-label="Close submit confirmation"
+              onClick={() => setIsConfirmOpen(false)}
+            />
+            <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 bg-white border-4 border-brand-black shadow-solid">
+              <div className="bg-brand-black text-white p-4 border-b-4 border-brand-black">
+                <div className="font-black uppercase text-lg">Confirm submission</div>
+                <div className="text-sm font-medium text-white/80 mt-1">
+                  Once submitted, you can’t change answers.
+                </div>
+              </div>
+              <div className="p-5 space-y-4">
+                <div className="border-2 border-brand-black p-4 shadow-solid-sm bg-white">
+                  <div className="text-xs font-bold uppercase tracking-widest text-brand-black/70">Unanswered</div>
+                  <div className="mt-2 text-2xl font-black">
+                    {unansweredCount} / {test.questions.length}
+                  </div>
+                  <div className="mt-2 text-sm font-medium text-brand-black/70">
+                    You can still go back and answer before submitting.
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsConfirmOpen(false)}
+                    className="flex-1 py-3 bg-white border-2 border-brand-black font-black uppercase shadow-solid-sm"
+                  >
+                    Continue attempt
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsConfirmOpen(false);
+                      submitNow();
+                    }}
+                    className="flex-1 py-3 bg-brand-orange border-2 border-brand-black font-black uppercase shadow-solid-sm disabled:opacity-70"
+                    disabled={submitMutation.isPending}
+                  >
+                    Submit now
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         ) : null}
 
@@ -209,8 +373,7 @@ export default function AttemptTestPage() {
             </div>
 
             <div className="p-5">
-              <div className="font-black uppercase text-sm text-brand-black/70">Prompt</div>
-              <div className="mt-2 text-lg font-medium">{current.questionText}</div>
+              <div className="text-lg font-medium">{current.questionText}</div>
 
               <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {current.options.map((opt, idx) => {

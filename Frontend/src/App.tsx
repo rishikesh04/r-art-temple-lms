@@ -1,19 +1,21 @@
 import { Routes, Route, Link, NavLink } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import Home from './pages/Home';
-import Login from './pages/Login';
-import Signup from './pages/Signup';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './context/AuthContext';
-import AdminLayout from './pages/Admin/AdminLayout';
-import AdminDashboard from './pages/Admin/AdminDashboard';
-import StudentManagement from './pages/Admin/StudentManagement';
-import StudentDashboard from './pages/Student/StudentDashboard';
-import TestsList from './pages/Student/TestsList';
-import TestDetailsPage from './pages/Student/TestDetails';
-import AttemptTestPage from './pages/Student/AttemptTest';
 import { Menu, UserCircle, LogOut, ChevronDown, LogIn, UserPlus, LayoutDashboard } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
+
+const Home = lazy(() => import('./pages/Home'));
+const Login = lazy(() => import('./pages/Login'));
+const Signup = lazy(() => import('./pages/Signup'));
+const AdminLayout = lazy(() => import('./pages/Admin/AdminLayout'));
+const AdminDashboard = lazy(() => import('./pages/Admin/AdminDashboard'));
+const StudentManagement = lazy(() => import('./pages/Admin/StudentManagement'));
+const StudentDashboard = lazy(() => import('./pages/Student/StudentDashboard'));
+const TestsList = lazy(() => import('./pages/Student/TestsList'));
+const TestDetailsPage = lazy(() => import('./pages/Student/TestDetails'));
+const AttemptTestPage = lazy(() => import('./pages/Student/AttemptTest'));
+const AttemptResultPage = lazy(() => import('./pages/Student/AttemptResult'));
 
 function App() {
   const { user, logout } = useAuth();
@@ -201,47 +203,67 @@ function App() {
 
       {/* PAGES */}
       <div className="flex-1">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          
-          <Route path="/dashboard" element={
-            <ProtectedRoute allowedRole="student">
-              <StudentDashboard />
-            </ProtectedRoute>
-          } />
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+            
+            <Route path="/dashboard" element={
+              <ProtectedRoute allowedRole="student">
+                <StudentDashboard />
+              </ProtectedRoute>
+            } />
 
-          <Route path="/tests" element={
-            <ProtectedRoute allowedRole="student">
-              <TestsList />
-            </ProtectedRoute>
-          } />
-          <Route path="/tests/:id" element={
-            <ProtectedRoute allowedRole="student">
-              <TestDetailsPage />
-            </ProtectedRoute>
-          } />
-          <Route path="/tests/:id/attempt" element={
-            <ProtectedRoute allowedRole="student">
-              <AttemptTestPage />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/admin" element={
-            <ProtectedRoute allowedRole="admin">
-              <AdminLayout />
-            </ProtectedRoute>
-          }>
-            <Route index element={<AdminDashboard />} />
-            <Route path="students" element={<StudentManagement />} />
-            <Route path="questions" element={<div className="p-10 font-black text-3xl uppercase">Question Bank Next</div>} />
-            <Route path="tests" element={<div className="p-10 font-black text-3xl uppercase">Test Manager Next</div>} />
-          </Route>
-        </Routes>
+            <Route path="/tests" element={
+              <ProtectedRoute allowedRole="student">
+                <TestsList />
+              </ProtectedRoute>
+            } />
+            <Route path="/tests/:id" element={
+              <ProtectedRoute allowedRole="student">
+                <TestDetailsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/tests/:id/attempt" element={
+              <ProtectedRoute allowedRole="student">
+                <AttemptTestPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/attempts/:id" element={
+              <ProtectedRoute allowedRole="student">
+                <AttemptResultPage />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/admin" element={
+              <ProtectedRoute allowedRole="admin">
+                <AdminLayout />
+              </ProtectedRoute>
+            }>
+              <Route index element={<AdminDashboard />} />
+              <Route path="students" element={<StudentManagement />} />
+              <Route path="questions" element={<div className="p-10 font-black text-3xl uppercase">Question Bank Next</div>} />
+              <Route path="tests" element={<div className="p-10 font-black text-3xl uppercase">Test Manager Next</div>} />
+            </Route>
+          </Routes>
+        </Suspense>
       </div>
     </div>
   );
 }
 
 export default App;
+
+function PageLoader() {
+  return (
+    <div className="min-h-[calc(100vh-88px)] px-4 py-8">
+      <div className="mx-auto w-full max-w-4xl">
+        <div className="w-full h-40 flex items-center justify-center border-4 border-brand-black border-dashed opacity-60 font-bold uppercase animate-pulse">
+          Loading Page...
+        </div>
+      </div>
+    </div>
+  );
+}

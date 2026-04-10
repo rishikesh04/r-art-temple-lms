@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 // Import routes
 import adminRoutes from './routes/admin.routes.js';
 import authRoutes from './routes/auth.routes.js';
@@ -16,23 +18,78 @@ import testAttendanceRoutes from './routes/testAttendance.routes.js';
 // Initialize Express app
 const app = express();
 
+const isProduction = process.env.NODE_ENV === 'production';
+const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+const jsonLimit = process.env.JSON_BODY_LIMIT || '200kb';
+const defaultWindowMs = Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000);
+const defaultMax = Number(process.env.RATE_LIMIT_MAX || 400);
+const authMax = Number(process.env.AUTH_RATE_LIMIT_MAX || 25);
+const attemptsSubmitMax = Number(process.env.ATTEMPT_SUBMIT_RATE_LIMIT_MAX || 120);
 
 // MIDDLEWARES
 
 // Parse incoming JSON requests
-app.use(express.json());
+app.use(express.json({ limit: jsonLimit }));
+app.use(express.urlencoded({ extended: true, limit: jsonLimit }));
 
 // Parse incoming cookies
 app.use(cookieParser());
+
+// Basic security headers
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false,
+  })
+);
 
 // Configure CORS (Cross-Origin Resource Sharing)
 // This  allows  frontend to communicate with  backend securely
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173', // React/Vite frontend URL
+    origin: clientUrl, // React/Vite frontend URL
     credentials: true, // Crucial for sending/receiving HTTP-only cookies
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   })
 );
+
+// Global API rate limiter
+const apiLimiter = rateLimit({
+  windowMs: defaultWindowMs,
+  max: defaultMax,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many requests. Please try again in a few minutes.',
+  },
+});
+app.use('/api', apiLimiter);
+
+// Stricter limiter for auth endpoints
+const authLimiter = rateLimit({
+  windowMs: defaultWindowMs,
+  max: authMax,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many authentication attempts. Please wait and try again.',
+  },
+});
+app.use('/api/auth', authLimiter);
+
+// Stricter limiter for attempt submissions
+const submitLimiter = rateLimit({
+  windowMs: defaultWindowMs,
+  max: attemptsSubmitMax,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many test submissions in a short time. Please retry shortly.',
+  },
+});
+app.use('/api/attempts/submit', submitLimiter);
 
 
 // ROUTES
@@ -72,5 +129,25 @@ app.use('/api/admin/dashboard', adminDashboardRoutes)
 //api for admin to seen info about test attendancea
 app.use('/api/admin/tests', testAttendanceRoutes )
 
+// Not-found handler
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: 'Route not found',
+  });
+});
+
+// Central error handler (do not leak internals in production)
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  return res.status(err.status || 500).json({
+    success: false,
+    message: err.message || 'Internal server error',
+    ...(isProduction ? {} : { error: err.stack }),
+  });
+});
 
 export default app;

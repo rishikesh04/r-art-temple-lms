@@ -1,18 +1,20 @@
 import express from 'express';
 import { signupUser, loginUser, logoutUser, getCurrentUser } from '../controllers/auth.controller.js';
 import { protect } from '../middlewares/auth.middleware.js';
+import { validateBody } from '../middlewares/validate.middleware.js';
+import { loginSchema, signupSchema } from '../validators/auth.validators.js';
 
 const router = express.Router();
 
 // @route   POST /api/auth/signup
 // @desc    Register a new student
 // @access  Public
-router.post('/signup', signupUser);
+router.post('/signup', validateBody(signupSchema), signupUser);
 
 // @route   POST /api/auth/login
 // @desc    Login user (Student or Admin)
 // @access  Public
-router.post('/login', loginUser);
+router.post('/login', validateBody(loginSchema), loginUser);
 
 // @route   POST /api/auth/logout
 // @desc    Logout user and clear cookie
