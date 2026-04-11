@@ -25,6 +25,7 @@ const StudentStubPage = lazy(() => import('./pages/Student/StudentStubPage'));
 const UpcomingTestsPage = lazy(() => import('./pages/Student/UpcomingTestsPage'));
 const PastTestsPage = lazy(() => import('./pages/Student/PastTestsPage'));
 const MyAttemptsPage = lazy(() => import('./pages/Student/MyAttemptsPage'));
+const PerformancePage = lazy(() => import('./pages/Student/PerformancePage'));
 
 function firstNameFromFullName(name: string) {
   const t = name.trim();
@@ -368,7 +369,7 @@ function App() {
             } />
             <Route path="/dashboard/performance" element={
               <ProtectedRoute allowedRole="student">
-                <StudentStubPage />
+                <PerformancePage />
               </ProtectedRoute>
             } />
             <Route path="/dashboard/live" element={
