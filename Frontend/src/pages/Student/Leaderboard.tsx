@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
+import { ChevronLeft, Home } from 'lucide-react';
 import axiosInstance from '../../utils/axiosInstance';
-import { getApiMessage } from '../../utils/apiMessage';
-import PodiumArt from '../../assets/Innovation-rafiki.svg';
-import { useAuth } from '../../context/AuthContext';
 
 type LeaderboardRow = {
   rank: number;
@@ -38,13 +36,6 @@ type MyAttemptsResponse = {
   }>;
 };
 
-const fmt = (secs: number) => {
-  const s = Math.max(0, Math.floor(secs || 0));
-  const m = Math.floor(s / 60);
-  const r = s % 60;
-  return `${m}m ${r}s`;
-};
-
 function attemptTestIdString(test: MyAttemptsResponse['attempts'][0]['test']) {
   if (!test || typeof test !== 'object') return null;
   const t = test as { _id?: string; id?: string };
@@ -52,10 +43,17 @@ function attemptTestIdString(test: MyAttemptsResponse['attempts'][0]['test']) {
   return raw != null ? String(raw) : null;
 }
 
+const formatTime = (secs: number) => {
+  const s = Math.max(0, Math.floor(secs || 0));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}m ${r}s`;
+};
+
 export default function StudentLeaderboardPage() {
   const { testId } = useParams<{ testId: string }>();
-  const { user } = useAuth();
-  const myRowRef = useRef<HTMLTableRowElement | null>(null);
+  const navigate = useNavigate();
+  const myRowRef = useRef<HTMLDivElement | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['leaderboard', testId],
@@ -72,7 +70,6 @@ export default function StudentLeaderboardPage() {
       const res = await axiosInstance.get('/attempts/my-attempts');
       return res.data as MyAttemptsResponse;
     },
-    enabled: Boolean(testId) && Boolean(user),
   });
 
   const myAttemptId = useMemo(() => {
@@ -81,232 +78,161 @@ export default function StudentLeaderboardPage() {
     return hit?.id ?? null;
   }, [myAttemptsData, testId]);
 
-  const errorMessage = error ? getApiMessage(error, 'Failed to load leaderboard.') : null;
   const top3 = data?.leaderboard.slice(0, 3) || [];
-  const myId = user?.id || '';
+  const others = data?.leaderboard.slice(3) || [];
 
-  useEffect(() => {
-    if (!myRowRef.current) return;
-    myRowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, [data?.leaderboard, myId]);
-
-  const podiumOrder: Array<{ slot: 1 | 2 | 3; row?: LeaderboardRow }> = [
-    { slot: 2, row: top3[1] },
-    { slot: 1, row: top3[0] },
+  // Sort them as 3rd, 1st, 2nd for podium
+  const podiumOrder = [
     { slot: 3, row: top3[2] },
+    { slot: 1, row: top3[0] },
+    { slot: 2, row: top3[1] },
   ];
 
-  return (
-    <div className="min-h-[calc(100vh-88px)] px-4 py-8 relative max-md:pb-28">
-      <img src={PodiumArt} alt="" className="pointer-events-none hidden lg:block absolute right-0 bottom-0 w-[520px] opacity-15" />
+  if (isLoading) {
+    return (
+      <div className="min-h-[100dvh] flex items-center justify-center bg-slate-50">
+        <div className="text-slate-500 font-medium animate-pulse">Loading Leaderboard...</div>
+      </div>
+    );
+  }
 
-      <div className="mx-auto w-full max-w-6xl relative z-10">
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <Link
-            to="/dashboard"
-            className="inline-flex items-center justify-center px-4 py-3 border-2 border-brand-black bg-white font-black uppercase shadow-solid-sm text-sm w-full sm:w-auto text-center"
-          >
-            Back to Hub
-          </Link>
-          <Link
-            to="/tests"
-            className="inline-flex items-center justify-center px-4 py-3 border-2 border-brand-black bg-brand-orange font-black uppercase shadow-solid-sm text-sm w-full sm:w-auto text-center"
-          >
-            Tests
-          </Link>
+  if (error || !data?.success) {
+    return (
+      <div className="min-h-[100dvh] flex items-center justify-center bg-slate-50 p-4">
+        <div className="bg-red-50 text-red-600 px-6 py-4 rounded-2xl border border-red-100">
+          Failed to load leaderboard.
         </div>
+      </div>
+    );
+  }
 
-        {isLoading ? (
-          <div className="w-full h-40 flex items-center justify-center border-4 border-brand-black border-dashed opacity-60 font-bold uppercase animate-pulse">
-            Loading Leaderboard...
-          </div>
-        ) : error || !data?.success ? (
-          <div className="p-8 bg-red-100 border-4 border-brand-black shadow-solid font-bold text-red-700">
-            {errorMessage || 'Failed to load leaderboard.'}
-          </div>
-        ) : (
-          <div className="space-y-6">
-            <div className="bg-white border-4 border-brand-black shadow-solid overflow-hidden">
-              <div className="bg-brand-black text-white p-5 border-b-4 border-brand-black">
-                <h1 className="text-xl md:text-3xl font-black uppercase tracking-tight">Leaderboard</h1>
-                <p className="mt-2 text-xs md:text-sm font-medium text-white/80">
-                  {data.test.title} • Class {data.test.classLevel} • {data.totalParticipants} participants
-                </p>
-              </div>
-              <div className="p-4 md:p-5 grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
-                <Tile label="Subject" value={data.test.subject} />
-                <Tile label="Participants" value={String(data.totalParticipants)} />
-                <Tile label="Total Marks" value={String(data.test.totalMarks)} />
-              </div>
-            </div>
-
-            <div className="bg-white border-4 border-brand-black shadow-solid overflow-hidden">
-              <div className="bg-brand-black text-white p-4 border-b-4 border-brand-black">
-                <div className="font-black uppercase text-lg">Top 3</div>
-              </div>
-              {top3.length === 0 ? (
-                <div className="p-6 font-bold uppercase text-brand-black/40">No participants yet.</div>
-              ) : (
-                <>
-                  {/* Mobile podium: 2 — 1 — 3 */}
-                  <div className="md:hidden p-4 flex items-end justify-center gap-2 min-h-[200px]">
-                    {podiumOrder.map(({ slot, row }) => {
-                      const h = slot === 1 ? 'h-28' : slot === 2 ? 'h-20' : 'h-14';
-                      const podiumColor = slot === 1 ? 'bg-yellow-300' : slot === 2 ? 'bg-gray-300' : 'bg-orange-300';
-                      if (!row) {
-                        return (
-                          <div key={slot} className="flex-1 flex flex-col items-center justify-end opacity-40">
-                            <div className="h-10 w-10 rounded-full border-2 border-brand-black bg-white mb-2" />
-                            <div className="text-[10px] font-black uppercase">#{slot}</div>
-                            <div className={`w-full mt-1 border-2 border-brand-black ${h} ${podiumColor}`} />
-                          </div>
-                        );
-                      }
-                      const isMe = myId && row.studentId === myId;
-                      return (
-                        <div key={row.studentId || slot} className="flex-1 flex flex-col items-center justify-end max-w-[33%]">
-                          <div className="text-[10px] font-black uppercase mb-1">#{row.rank}</div>
-                          <div className="h-10 w-10 rounded-full border-2 border-brand-black bg-white flex items-center justify-center font-black text-sm shrink-0">
-                            {row.studentName.charAt(0)}
-                          </div>
-                          <div className="text-[10px] font-black uppercase text-center truncate w-full mt-1 px-0.5">
-                            {row.studentName}
-                            {isMe ? <span className="block text-brand-orange">You</span> : null}
-                          </div>
-                          <div className={`w-full mt-1 border-2 border-brand-black flex flex-col items-center justify-end ${h} ${podiumColor} pt-1`}>
-                            <div className="text-[10px] font-black">{row.score}/{row.totalQuestions}</div>
-                            <div className="text-[9px] font-bold">{row.percentage}%</div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Desktop top 3 cards */}
-                  <div className="hidden md:grid p-4 grid-cols-3 gap-4">
-                    {[1, 0, 2].map((idxOrder) => {
-                      const row = top3[idxOrder];
-                      if (!row) return <div key={idxOrder} />;
-                      const podiumColor = row.rank === 1 ? 'bg-yellow-300' : row.rank === 2 ? 'bg-gray-300' : 'bg-orange-300';
-                      const isMe = myId && row.studentId === myId;
-                      return (
-                        <div key={row.studentId || row.rank} className={`border-4 border-brand-black p-4 shadow-solid-sm ${podiumColor}`}>
-                          <div className="text-xs font-black uppercase flex items-center justify-between">
-                            <span>Rank #{row.rank}</span>
-                            {isMe ? <span className="px-2 py-0.5 border-2 border-brand-black bg-white text-[10px]">You</span> : null}
-                          </div>
-                          <div className="mt-2 text-xl font-black uppercase truncate">{row.studentName}</div>
-                          <div className="mt-3 text-sm font-bold">
-                            {row.score} / {row.totalQuestions}
-                          </div>
-                          <div className="text-sm font-bold">{row.percentage}%</div>
-                          <div className="text-xs font-bold mt-1">Time: {fmt(row.timeTaken)}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="bg-white border-4 border-brand-black shadow-solid overflow-hidden">
-              <div className="bg-brand-black text-white p-4 border-b-4 border-brand-black">
-                <div className="font-black uppercase text-lg">Leaderboard</div>
-              </div>
-
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full min-w-[760px]">
-                  <thead className="bg-brand-gray/20 text-xs uppercase font-black">
-                    <tr>
-                      <th className="text-left p-3 border-b-2 border-brand-black">Rank</th>
-                      <th className="text-left p-3 border-b-2 border-brand-black">Student</th>
-                      <th className="text-left p-3 border-b-2 border-brand-black">Score</th>
-                      <th className="text-left p-3 border-b-2 border-brand-black">%</th>
-                      <th className="text-left p-3 border-b-2 border-brand-black">Time</th>
-                      <th className="text-left p-3 border-b-2 border-brand-black">Submitted</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.leaderboard.map((r) => (
-                      <tr
-                        ref={myId && r.studentId === myId ? myRowRef : null}
-                        key={`${r.rank}-${r.studentId}`}
-                        className={`border-b border-brand-black/10 ${myId && r.studentId === myId ? 'bg-brand-orange/20' : ''}`}
-                      >
-                        <td className="p-3 font-black">#{r.rank}</td>
-                        <td className="p-3 font-bold">
-                          {r.studentName}
-                          {myId && r.studentId === myId ? (
-                            <span className="ml-2 px-2 py-0.5 border border-brand-black text-[10px] font-black uppercase bg-white">You</span>
-                          ) : null}
-                        </td>
-                        <td className="p-3 font-bold">
-                          {r.score} / {r.totalQuestions}
-                        </td>
-                        <td className="p-3 font-bold">{r.percentage}%</td>
-                        <td className="p-3 font-bold">{fmt(r.timeTaken)}</td>
-                        <td className="p-3 text-sm font-medium">{new Date(r.submittedAt).toLocaleString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="md:hidden divide-y-2 divide-brand-black max-h-[50vh] overflow-y-auto">
-                {data.leaderboard.map((r) => (
-                  <div
-                    key={`${r.rank}-${r.studentId}`}
-                    className={`p-4 flex items-center justify-between gap-3 ${myId && r.studentId === myId ? 'bg-brand-orange/15' : ''}`}
-                  >
-                    <div className="min-w-0">
-                      <div className="font-black text-sm">#{r.rank}</div>
-                      <div className="font-bold text-sm truncate">
-                        {r.studentName}
-                        {myId && r.studentId === myId ? (
-                          <span className="ml-2 text-[10px] font-black uppercase border border-brand-black px-1">You</span>
-                        ) : null}
-                      </div>
-                      <div className="text-xs font-bold text-brand-black/65 mt-1">{fmt(r.timeTaken)}</div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <div className="font-black text-brand-orange">
-                        {r.score}/{r.totalQuestions}
-                      </div>
-                      <div className="text-xs font-bold">{r.percentage}%</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+  return (
+    <div className="min-h-[100dvh] bg-slate-50 flex flex-col pt-[env(safe-area-inset-top,0px)]">
+      {/* Header */}
+      <div className="border-b border-slate-200/90 bg-white/95 backdrop-blur-md px-4 py-3 flex items-center justify-between sticky top-0 z-10">
+        <button 
+          onClick={() => navigate(-1)}
+          className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-800 shadow-sm transition hover:bg-slate-50 active:scale-95"
+          aria-label="Go back"
+        >
+          <ChevronLeft size={24} strokeWidth={2.2} />
+        </button>
+        <span className="text-sm font-semibold tracking-tight text-slate-900">{data?.test?.title || 'Test Info'}</span>
+        <div className="w-10" aria-hidden />
       </div>
 
-      {!isLoading && data?.success ? (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t-4 border-brand-black p-3 shadow-[0_-6px_0_0_rgb(0,0,0)]">
-          {myAttemptId ? (
-            <Link
-              to={`/attempts/${myAttemptId}`}
-              className="block w-full text-center py-4 bg-brand-orange border-2 border-brand-black font-black uppercase shadow-solid-sm rounded-lg"
-            >
-              My result
-            </Link>
-          ) : (
-            <div className="text-center py-3 text-xs font-bold text-brand-black/60 uppercase">
-              Submit this test to see your result here
+      <div className="flex-1 px-4 py-6 max-w-md mx-auto w-full max-md:pb-32">
+        {top3.length > 0 && (
+          <div className="mb-10 mt-4">
+            <div className="flex items-end justify-center gap-2 h-44">
+              {podiumOrder.map(({ slot, row }) => {
+                if (!row) {
+                  return (
+                    <div key={slot} className="flex-1 flex flex-col items-center justify-end opacity-40">
+                      <div className="h-12 w-12 rounded-full border-2 border-slate-200 bg-white text-slate-400 mb-2 flex items-center justify-center font-bold text-xs" />
+                      <div className="w-full h-16 rounded-t-2xl border border-slate-200 bg-white" />
+                    </div>
+                  );
+                }
+
+                const isFirst = slot === 1;
+                const bgColor = isFirst 
+                  ? 'bg-[#FF5A22] text-white border-none shadow-lg shadow-orange-500/30' 
+                  : slot === 2 
+                    ? 'bg-slate-100 text-slate-700 border border-slate-200/80 shadow-sm'
+                    : 'bg-stone-100 text-stone-700 border border-stone-200/80 shadow-sm';
+                
+                const heightClass = isFirst ? 'h-28' : slot === 2 ? 'h-20' : 'h-16';
+
+                return (
+                  <div key={row.studentId} className="flex-1 flex flex-col items-center max-w-[30%]">
+                    <div className="mb-1 text-center">
+                      <div className="h-12 w-12 mx-auto rounded-full bg-[#FF5A22] border-2 border-white shadow-sm flex items-center justify-center font-bold text-sm text-white mb-1">
+                        {row.studentName.charAt(0)}
+                      </div>
+                      <div className="text-[10px] font-medium text-slate-600 truncate px-1 w-full max-w-[60px]">
+                        {row.studentName.split(' ')[0]}
+                      </div>
+                    </div>
+                    
+                    <div className={`w-full rounded-t-3xl flex flex-col items-center pt-3 ${bgColor} ${heightClass} relative overflow-hidden`}>
+                      <span className={`text-xl font-bold ${isFirst ? 'text-white' : 'text-slate-800'}`}>
+                        {slot}{slot === 1 ? 'st' : slot === 2 ? 'nd' : 'rd'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Base line for podium */}
+            <div className="h-px bg-slate-300 w-full mx-auto" />
+          </div>
+        )}
+
+        <div className="text-center mb-4">
+          <h2 className="text-lg font-bold text-slate-800">Leaderboard</h2>
+        </div>
+
+        <div className="space-y-3 bg-white border border-slate-200 rounded-3xl p-3 shadow-xl shadow-slate-200/40">
+          {others.length === 0 && top3.length <= 3 && top3.length > 0 && (
+            <div className="text-center py-4 text-xs font-medium text-slate-400">
+              No more participants.
             </div>
           )}
+          {others.map((r) => (
+            <div 
+              key={r.studentId}
+              className="flex items-center justify-between p-3.5 rounded-2xl border border-slate-100 bg-slate-50/50"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-bold text-slate-400 w-6 text-center">
+                  #{r.rank}
+                </span>
+                <div className="h-9 w-9 rounded-full bg-[#FF5A22]/10 border border-[#FF5A22]/20 flex items-center justify-center font-bold text-xs text-[#FF5A22]">
+                  {r.studentName.charAt(0)}
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-slate-800">{r.studentName}</div>
+                  <div className="text-[10px] font-medium text-slate-500">{formatTime(r.timeTaken)}</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm font-bold text-slate-900">{r.score}/{r.totalQuestions}</div>
+                <div className="text-[10px] font-medium text-slate-400">{r.percentage}%</div>
+              </div>
+            </div>
+          ))}
         </div>
-      ) : null}
+      </div>
+
+      {/* Bottom Floating Nav Action */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-t border-slate-200/90 pb-[env(safe-area-inset-bottom)] px-4">
+        <div className="py-3 flex items-center gap-4 max-w-md mx-auto">
+          <Link
+            to="/dashboard"
+            className="flex flex-col items-center justify-center w-12 h-12 bg-white border border-slate-200 rounded-2xl shadow-sm text-slate-600 hover:text-[#ff5722] transition-colors shrink-0"
+            aria-label="Home"
+          >
+            <Home size={20} strokeWidth={2.5} className="text-[#ff5722]" />
+          </Link>
+          
+          <div className="flex-1 border border-dashed border-slate-300 rounded-2xl p-1 pointer-events-auto">
+            {myAttemptId ? (
+              <Link
+                to={`/attempts/${myAttemptId}`}
+                className="flex items-center justify-center w-full py-3.5 bg-[#FF5A22] text-white font-semibold rounded-xl shadow-md shadow-orange-500/30 hover:brightness-105 transition-all text-sm"
+              >
+                My Result
+              </Link>
+            ) : (
+              <div className="flex items-center justify-center w-full py-3.5 bg-slate-100 text-slate-400 font-semibold rounded-xl text-sm">
+                No Result Available
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
-function Tile({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="border-2 border-brand-black p-4 shadow-solid-sm bg-white">
-      <div className="text-xs font-bold uppercase tracking-widest text-brand-black/70">{label}</div>
-      <div className="mt-2 text-2xl font-black">{value}</div>
-    </div>
-  );
-}

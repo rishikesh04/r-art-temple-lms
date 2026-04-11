@@ -123,10 +123,41 @@ export default function AdminTestsManager() {
   const toggleQuestion = (questionId: string) => {
     setForm((prev) => {
       const exists = prev.questions.includes(questionId);
+      const newQuestions = exists ? prev.questions.filter((id) => id !== questionId) : [...prev.questions, questionId];
       return {
         ...prev,
-        questions: exists ? prev.questions.filter((id) => id !== questionId) : [...prev.questions, questionId],
+        questions: newQuestions,
+        totalMarks: newQuestions.length || 1,
       };
+    });
+  };
+
+  const handleStartTimeChange = (v: string) => {
+    setForm((p) => {
+      const updated = { ...p, startTime: v };
+      if (updated.startTime && updated.duration) {
+        const d = new Date(updated.startTime);
+        if (!isNaN(d.getTime())) {
+          d.setMinutes(d.getMinutes() + Number(updated.duration));
+          updated.endTime = toDateTimeLocal(d.toISOString());
+        }
+      }
+      return updated;
+    });
+  };
+
+  const handleDurationChange = (v: string) => {
+    const dur = Number(v);
+    setForm((p) => {
+      const updated = { ...p, duration: dur };
+      if (updated.startTime && dur) {
+        const d = new Date(updated.startTime);
+        if (!isNaN(d.getTime())) {
+          d.setMinutes(d.getMinutes() + dur);
+          updated.endTime = toDateTimeLocal(d.toISOString());
+        }
+      }
+      return updated;
     });
   };
 
@@ -292,7 +323,7 @@ export default function AdminTestsManager() {
                 type="number"
                 min={1}
                 value={String(form.duration)}
-                onChange={(v) => setForm((p) => ({ ...p, duration: Number(v) }))}
+                onChange={handleDurationChange}
                 required
               />
               <Input
@@ -310,7 +341,7 @@ export default function AdminTestsManager() {
                 label="Start Time"
                 type="datetime-local"
                 value={form.startTime}
-                onChange={(v) => setForm((p) => ({ ...p, startTime: v }))}
+                onChange={handleStartTimeChange}
                 required
               />
               <Input

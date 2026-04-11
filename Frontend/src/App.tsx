@@ -35,7 +35,10 @@ function firstNameFromFullName(name: string) {
 function App() {
   const { user, logout } = useAuth();
   const location = useLocation();
-  const hideGlobalChrome = Boolean(matchPath('/tests/:id/attempt', location.pathname));
+  const hideGlobalChrome = Boolean(matchPath('/tests/:id/attempt', location.pathname)) || 
+                           Boolean(matchPath('/tests/:id/submitted', location.pathname)) ||
+                           Boolean(matchPath('/tests/:testId/leaderboard', location.pathname)) ||
+                           Boolean(matchPath('/attempts/:id', location.pathname));
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
@@ -306,14 +309,6 @@ function App() {
                     >
                       Overview
                       <LayoutDashboard size={18} />
-                    </Link>
-                    <Link
-                      to="/tests"
-                      onClick={() => setIsMobileNavOpen(false)}
-                      className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3 font-semibold text-sm text-slate-800 shadow-sm bg-white"
-                    >
-                      All tests
-                      <ClipboardList size={18} />
                     </Link>
                     <Link
                       to="/dashboard/performance"

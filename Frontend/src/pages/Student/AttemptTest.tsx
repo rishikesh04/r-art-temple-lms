@@ -37,6 +37,7 @@ type SubmitPayload = {
 };
 
 const formatTime = (seconds: number) => {
+  if (isNaN(seconds) || seconds === null) return '--:--';
   const s = Math.max(0, Math.floor(seconds));
   const mm = Math.floor(s / 60).toString().padStart(2, '0');
   const ss = Math.floor(s % 60).toString().padStart(2, '0');
@@ -85,45 +86,6 @@ export default function AttemptTestPage() {
   const [isTimerReady, setIsTimerReady] = useState(false);
 
   useEffect(() => {
-    if (!test) return;
-    if (!draftKey) return;
-    if (hasRestoredRef.current) return;
-    hasRestoredRef.current = true;
-
-    try {
-      const raw = localStorage.getItem(draftKey);
-      if (!raw) {
-        startedAtRef.current = Date.now();
-        setRemaining(test.duration * 60);
-        setIsTimerReady(true);
-        return;
-      }
-      const draft = JSON.parse(raw) as AttemptDraft;
-      if (!draft || draft.testId !== test._id) {
-        startedAtRef.current = Date.now();
-        setRemaining(test.duration * 60);
-        setIsTimerReady(true);
-        return;
-      }
-
-      startedAtRef.current = typeof draft.startedAt === 'number' ? draft.startedAt : Date.now();
-      setAnswers(draft.answers || {});
-      setMarkedForReview(draft.marked || {});
-      const vis = draft.visitedIds || [];
-      setVisitedIds(Object.fromEntries(vis.map((qid) => [qid, true])));
-      setActiveIndex(Math.min(Math.max(0, draft.activeIndex || 0), test.questions.length - 1));
-
-      const elapsed = Math.floor((Date.now() - startedAtRef.current) / 1000);
-      setRemaining(Math.max(0, test.duration * 60 - elapsed));
-      setIsTimerReady(true);
-    } catch {
-      startedAtRef.current = Date.now();
-      setRemaining(test.duration * 60);
-      setIsTimerReady(true);
-    }
-  }, [draftKey, test]);
-
-  useEffect(() => {
     hasRestoredRef.current = false;
     setIsTimerReady(false);
     setRemaining(null);
@@ -135,19 +97,72 @@ export default function AttemptTestPage() {
 
   useEffect(() => {
     if (!test) return;
+    if (!draftKey) return;
+    if (hasRestoredRef.current) return;
+    hasRestoredRef.current = true;
+
+      const calcTime = () => {
+        if (!test.startTime || !test.endTime) return test.duration * 60;
+        const now = Date.now();
+        const start = new Date(test.startTime).getTime();
+        const end = new Date(test.endTime).getTime();
+        
+        if (isNaN(start) || isNaN(end)) return test.duration * 60;
+        
+        const elapsedSinceStart = Math.floor((now - start) / 1000);
+        const initialRemaining = elapsedSinceStart > 0 
+          ? Math.max(0, (test.duration * 60) - elapsedSinceStart) 
+          : test.duration * 60;
+        const untilEnd = Math.max(0, Math.floor((end - now) / 1000));
+        return Math.min(initialRemaining, untilEnd);
+      };
+
+      try {
+        const raw = localStorage.getItem(draftKey);
+        if (!raw) {
+          startedAtRef.current = Date.now();
+          setRemaining(calcTime());
+          setIsTimerReady(true);
+          return;
+        }
+        const draft = JSON.parse(raw) as AttemptDraft;
+        if (!draft || draft.testId !== test._id) {
+          startedAtRef.current = Date.now();
+          setRemaining(calcTime());
+          setIsTimerReady(true);
+          return;
+        }
+
+        startedAtRef.current = typeof draft.startedAt === 'number' ? draft.startedAt : Date.now();
+        setAnswers(draft.answers || {});
+        setMarkedForReview(draft.marked || {});
+        const vis = draft.visitedIds || [];
+        setVisitedIds(Object.fromEntries(vis.map((qid) => [qid, true])));
+        setActiveIndex(Math.min(Math.max(0, draft.activeIndex || 0), test.questions.length - 1));
+
+        setRemaining(calcTime());
+        setIsTimerReady(true);
+      } catch {
+        startedAtRef.current = Date.now();
+        setRemaining(test.duration * 60); // Fallback
+        setIsTimerReady(true);
+      }
+  }, [draftKey, test]);
+
+  useEffect(() => {
+    if (!test) return;
     const q = test.questions[activeIndex];
     if (!q) return;
     setVisitedIds((prev) => (prev[q._id] ? prev : { ...prev, [q._id]: true }));
   }, [test, activeIndex]);
 
   useEffect(() => {
-    if (!test) return;
-    if (remaining === null) return;
+    if (!test || !isTimerReady) return;
     const timer = window.setInterval(() => {
-      setRemaining((prev) => (prev === null ? null : Math.max(0, prev - 1)));
+      setRemaining((prev) => (prev === null || isNaN(prev) ? null : Math.max(0, prev - 1)));
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [test?._id, remaining]);
+  }, [test?._id, isTimerReady]);
 
   useEffect(() => {
     if (!test) return;
@@ -185,8 +200,15 @@ export default function AttemptTestPage() {
           // ignore
         }
       }
-      if (id) navigate(`/tests/${id}/submitted`);
-      else navigate('/dashboard');
+      if (id) {
+        if (test && new Date() >= new Date(test.endTime)) {
+          navigate(`/tests/${id}/leaderboard`);
+        } else {
+          navigate(`/tests/${id}/submitted`, { state: { testEndTime: test?.endTime } });
+        }
+      } else {
+        navigate('/dashboard');
+      }
     },
   });
 
@@ -225,6 +247,7 @@ export default function AttemptTestPage() {
       })),
     };
 
+    setIsSubmitReviewOpen(false);
     submitMutation.mutate(payload);
   };
 
@@ -235,13 +258,12 @@ export default function AttemptTestPage() {
   };
 
   useEffect(() => {
-    if (!test) return;
-    if (!isTimerReady) return;
+    if (!test || !isTimerReady) return;
     if (remaining !== 0) return;
     if (submitMutation.isPending || submitMutation.isSuccess) return;
     submitNow();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remaining, isTimerReady, test?._id]);
+  }, [remaining, isTimerReady]);
 
   useEffect(() => {
     if (!test) return;
@@ -417,7 +439,7 @@ export default function AttemptTestPage() {
             >
               <Menu size={20} strokeWidth={2.2} />
             </button>
-            <span className="text-sm font-semibold tracking-tight text-slate-900">Test Info</span>
+            <span className="text-sm font-semibold tracking-tight text-slate-900">{test.title}</span>
             <div className="w-10" aria-hidden />
           </div>
           <div className="flex items-center justify-between gap-3 px-3 pb-3">
@@ -442,7 +464,7 @@ export default function AttemptTestPage() {
         {/* Desktop: wireframe-style chrome (no global nav) */}
         <div className="mb-6 hidden md:block">
           <div className="flex items-center justify-center rounded-2xl border border-slate-200/90 bg-white px-4 py-3 shadow-sm">
-            <span className="text-sm font-semibold tracking-tight text-slate-900">Test Info</span>
+            <span className="text-sm font-semibold tracking-tight text-slate-900">{test.title}</span>
           </div>
           <p className="mt-2 text-center text-xs font-medium text-slate-500">
             {test.title}
@@ -622,24 +644,32 @@ export default function AttemptTestPage() {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_280px]">
           <motion.div
-            layout
             className="overflow-hidden rounded-3xl border border-slate-200/90 bg-white shadow-lg shadow-slate-200/40 ring-1 ring-slate-900/[0.04]"
           >
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/80 px-4 py-3 md:px-5">
-              <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Q.No{' '}
-                <span className="text-base font-semibold text-slate-900">
-                  {activeIndex + 1}
-                </span>
-                <span className="font-medium text-slate-400"> / {totalQ}</span>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {selected !== null ? (
-                  <span className="rounded-full bg-[#ff5722]/12 px-3 py-1 text-[11px] font-semibold text-[#c2410c] ring-1 ring-[#ff5722]/20">
-                    Option {optionLetter(selected)} selected
+            <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-3 border-b border-slate-100 bg-slate-50/80 px-4 py-3 md:px-5">
+              <div className="flex items-center gap-3">
+                <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                  Q.No{' '}
+                  <span className="text-base font-semibold text-slate-900">
+                    {activeIndex + 1}
                   </span>
+                  <span className="font-medium text-slate-400">/ {totalQ}</span>
+                </div>
+                <div className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-lg text-[10px] font-bold tracking-widest uppercase">
+                  +1 Mark
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {selected !== null ? (
+                  <div className="w-[130px] shrink-0">
+                    <div className="rounded-full bg-[#ff5722]/12 px-2 py-1 text-[11px] font-semibold text-[#c2410c] ring-1 ring-[#ff5722]/20 text-center w-full whitespace-nowrap overflow-hidden text-ellipsis">
+                      Option {optionLetter(selected)}
+                    </div>
+                  </div>
                 ) : (
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-600">Unanswered</span>
+                  <div className="w-[130px] shrink-0">
+                    <div className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600 text-center w-full whitespace-nowrap overflow-hidden text-ellipsis">Unanswered</div>
+                  </div>
                 )}
                 <button
                   type="button"
@@ -668,7 +698,6 @@ export default function AttemptTestPage() {
                     <motion.button
                       key={idx}
                       type="button"
-                      layout
                       onClick={() => onSelect(current._id, idx)}
                       whileTap={{ scale: 0.99 }}
                       className={[
@@ -791,3 +820,4 @@ export default function AttemptTestPage() {
     </div>
   );
 }
+

@@ -73,22 +73,7 @@ function AnalyticOverviewVisual() {
   );
 }
 
-/** Shown on the home “live” strip when the API has no active test, so layout can be reviewed. */
-const DEMO_LIVE_ID = 'preview-demo-live';
 
-function buildDemoLiveTest(): DashboardResponse['data']['availableTests'][number] {
-  const now = Date.now();
-  return {
-    _id: DEMO_LIVE_ID,
-    title: 'Class 8 weekly test',
-    subject: 'Mixed',
-    chapter: 'Class 8 · Week',
-    duration: 45,
-    totalMarks: 50,
-    startTime: new Date(now - 60 * 60 * 1000).toISOString(),
-    endTime: new Date(now + 48 * 60 * 60 * 1000).toISOString(),
-  };
-}
 
 export default function StudentDashboard() {
   const { data, isLoading, error } = useQuery({
@@ -99,11 +84,11 @@ export default function StudentDashboard() {
     },
   });
 
-  const { liveTest, isDemoLive } = useMemo(() => {
-    if (!data?.success) return { liveTest: null, isDemoLive: false };
+  const { liveTest } = useMemo(() => {
+    if (!data?.success) return { liveTest: null };
     const first = data.data.availableTests[0];
-    if (first) return { liveTest: first, isDemoLive: false };
-    return { liveTest: buildDemoLiveTest(), isDemoLive: true };
+    if (first) return { liveTest: first };
+    return { liveTest: null };
   }, [data]);
 
   return (
@@ -160,7 +145,7 @@ export default function StudentDashboard() {
               {liveTest ? (
                 <div className="flex gap-3 rounded-2xl border border-slate-200/90 bg-white p-3 shadow-sm">
                   <Link
-                    to={isDemoLive ? '/dashboard/live' : `/tests/${liveTest._id}/start`}
+                    to={`/tests/${liveTest._id}/start`}
                     className="flex shrink-0 items-center gap-2 self-center rounded-full border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-800 shadow-sm transition hover:bg-slate-50 active:scale-[0.98]"
                   >
                     <span className="relative flex h-2.5 w-2.5">
@@ -169,35 +154,19 @@ export default function StudentDashboard() {
                     </span>
                     Live
                   </Link>
-                  {isDemoLive ? (
-                    <div className="min-w-0 flex-1 rounded-xl bg-gradient-to-br from-orange-50 to-amber-50/80 px-3 py-2.5 border border-orange-100/80">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Test info</div>
-                        <span className="shrink-0 rounded-full bg-white/90 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-500 ring-1 ring-slate-200">
-                          Preview
-                        </span>
-                      </div>
-                      <div className="mt-0.5 truncate text-sm font-semibold text-slate-900">{liveTest.title}</div>
-                      <div className="mt-1 text-xs font-medium text-slate-600">
-                        {liveTest.subject}
-                        {liveTest.chapter ? ` · ${liveTest.chapter}` : ''} · ends {formatDateTime(liveTest.endTime)}
-                      </div>
+                  <Link
+                    to={`/tests/${liveTest._id}/start`}
+                    className="min-w-0 flex-1 rounded-xl bg-gradient-to-br from-orange-50 to-amber-50/80 px-3 py-2.5 border border-orange-100/80 text-left transition hover:border-orange-200/90 hover:shadow-sm active:scale-[0.99]"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Test info</div>
                     </div>
-                  ) : (
-                    <Link
-                      to={`/tests/${liveTest._id}/start`}
-                      className="min-w-0 flex-1 rounded-xl bg-gradient-to-br from-orange-50 to-amber-50/80 px-3 py-2.5 border border-orange-100/80 text-left transition hover:border-orange-200/90 hover:shadow-sm active:scale-[0.99]"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Test info</div>
-                      </div>
-                      <div className="mt-0.5 truncate text-sm font-semibold text-slate-900">{liveTest.title}</div>
-                      <div className="mt-1 text-xs font-medium text-slate-600">
-                        {liveTest.subject}
-                        {liveTest.chapter ? ` · ${liveTest.chapter}` : ''} · ends {formatDateTime(liveTest.endTime)}
-                      </div>
-                    </Link>
-                  )}
+                    <div className="mt-0.5 truncate text-sm font-semibold text-slate-900">{liveTest.title}</div>
+                    <div className="mt-1 text-xs font-medium text-slate-600">
+                      {liveTest.subject}
+                      {liveTest.chapter ? ` · ${liveTest.chapter}` : ''} · ends {formatDateTime(liveTest.endTime)}
+                    </div>
+                  </Link>
                 </div>
               ) : null}
 

@@ -236,7 +236,7 @@ export const getMyAttemptById = async (req, res) => {
       _id: req.params.id,
       student: req.user._id,
     })
-      .populate('test', 'title subject totalMarks duration endTime')
+      .populate('test', 'title description subject totalMarks duration startTime endTime')
       .populate({
         path: 'answers.question',
         select: 'questionText options correctAnswer explanation subject chapter difficulty',
@@ -268,6 +268,10 @@ export const getMyAttemptById = async (req, res) => {
         attemptId: attempt._id,
         testId: attempt.test?._id || null,
         testTitle: attempt.test?.title || 'Deleted Test',
+        testDescription: attempt.test?.description || '',
+        duration: attempt.test?.duration || 0,
+        testStartTime: attempt.test?.startTime || null,
+        testEndTime: attempt.test?.endTime || null,
         subject: attempt.test?.subject || null,
         score: attempt.score,
         totalQuestions: attempt.totalQuestions,
