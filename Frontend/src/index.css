@@ -1,36 +1,37 @@
 @import "tailwindcss";
 
 @theme {
-  /* Neo-Brutalist Palette */
-  --color-brand-orange: #FF5722; /* Vibrant Orange from your image */
-  --color-brand-black: #111111;  /* Deep Black */
-  --color-brand-white: #FAFAFA;  /* Off-White Background */
-  --color-brand-gray: #E0E0E0;   /* For subtle fills */
+  /* Minimal / modern accent (keeps “brand-*” names used across the app) */
+  --color-brand-orange: #ff5722;
+  --color-brand-black: #0f172a;
+  --color-brand-white: #ffffff;
+  --color-brand-gray: #e2e8f0;
 
   --font-sans: 'Inter', system-ui, sans-serif;
 }
 
 body {
-  background-color: var(--color-brand-white);
+  background-color: #f8fafc;
   color: var(--color-brand-black);
   font-family: var(--font-sans);
-  /* Add a subtle dot pattern for depth */
-  background-image: radial-gradient(var(--color-brand-gray) 1px, transparent 1px);
-  background-size: 20px 20px;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* 
-  The signature Neo-Brutalist Solid Shadows!
-  Notice there is NO blur radius (the third '0px').
-*/
+/* Soft shadows (utility names kept so existing classes update app-wide) */
 @utility shadow-solid {
-  box-shadow: 6px 6px 0px 0px #111111;
+  box-shadow:
+    0 4px 6px -1px rgb(15 23 42 / 0.07),
+    0 2px 4px -2px rgb(15 23 42 / 0.06);
 }
 
 @utility shadow-solid-hover {
-  box-shadow: 10px 10px 0px 0px #111111;
+  box-shadow:
+    0 10px 15px -3px rgb(15 23 42 / 0.08),
+    0 4px 6px -4px rgb(15 23 42 / 0.06);
 }
 
 @utility shadow-solid-sm {
-  box-shadow: 4px 4px 0px 0px #111111;
+  box-shadow:
+    0 1px 2px 0 rgb(15 23 42 / 0.05),
+    0 1px 3px 0 rgb(15 23 42 / 0.08);
 }

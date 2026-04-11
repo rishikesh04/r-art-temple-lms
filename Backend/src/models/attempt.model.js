@@ -53,6 +53,8 @@ const attemptSchema = new mongoose.Schema(
 
 // Prevent duplicate attempts at DB level
 attemptSchema.index({ student: 1, test: 1 }, { unique: true });
+attemptSchema.index({ student: 1, createdAt: -1 });
+attemptSchema.index({ test: 1, createdAt: -1 });
 
 const Attempt = mongoose.model('Attempt', attemptSchema);
 

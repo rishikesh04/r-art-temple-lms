@@ -10,7 +10,7 @@ export const getTestLeaderboard = async (req, res) => {
 
     //  Find test
     const test = await Test.findById(testId).select(
-      'title subject classLevel totalMarks status'
+      'title subject classLevel totalMarks status endTime'
     );
 
     if (!test) {

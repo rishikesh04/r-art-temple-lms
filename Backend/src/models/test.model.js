@@ -81,6 +81,11 @@ const testSchema = new mongoose.Schema(
   }
 );
 
+// Query performance indexes for student/admin dashboards and test listings
+testSchema.index({ classLevel: 1, status: 1, startTime: 1, endTime: 1 });
+testSchema.index({ subject: 1, chapter: 1, createdAt: -1 });
+testSchema.index({ createdBy: 1, createdAt: -1 });
+
 const Test = mongoose.model('Test', testSchema);
 
 export default Test;

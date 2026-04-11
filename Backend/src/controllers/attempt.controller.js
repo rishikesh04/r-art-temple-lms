@@ -266,6 +266,7 @@ export const getMyAttemptById = async (req, res) => {
       success: true,
       data: {
         attemptId: attempt._id,
+        testId: attempt.test?._id || null,
         testTitle: attempt.test?.title || 'Deleted Test',
         subject: attempt.test?.subject || null,
         score: attempt.score,

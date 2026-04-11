@@ -42,6 +42,54 @@ const createQuestion = async (req, res) => {
   }
 };
 
+// @desc    Bulk create questions
+// @route   POST /api/questions/bulk
+// @access  Private/Admin
+const bulkCreateQuestions = async (req, res) => {
+  try {
+    const incoming = Array.isArray(req.body.questions) ? req.body.questions : [];
+
+    const docs = incoming.map((q) => ({
+      ...q,
+      createdBy: req.user._id,
+    }));
+
+    const inserted = await Question.insertMany(docs, {
+      ordered: false,
+      runValidators: true,
+      lean: true,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: `Uploaded ${inserted.length} question(s) successfully.`,
+      insertedCount: inserted.length,
+    });
+  } catch (error) {
+    // insertMany with ordered:false can return partial failures
+    if (error?.name === 'ValidationError' || error?.name === 'MongoBulkWriteError') {
+      const writeErrors = error.writeErrors || [];
+      const details = writeErrors.slice(0, 25).map((e) => ({
+        index: e.index,
+        message: e.errmsg || e.message || 'Invalid row',
+      }));
+
+      return res.status(400).json({
+        success: false,
+        message: 'Bulk upload contains invalid rows',
+        insertedCount: error.result?.nInserted || 0,
+        errors: details,
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: 'Error uploading questions in bulk',
+      error: error.message,
+    });
+  }
+};
+
 // @desc    Get all questions (with optional filters)
 // @route   GET /api/questions
 // @access  Private
@@ -170,4 +218,4 @@ const deleteQuestion = async (req, res) => {
   }
 };
 
-export { createQuestion, getAllQuestions, getQuestionById, updateQuestion, deleteQuestion };
+export { createQuestion, bulkCreateQuestions, getAllQuestions, getQuestionById, updateQuestion, deleteQuestion };

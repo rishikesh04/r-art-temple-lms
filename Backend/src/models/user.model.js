@@ -50,6 +50,9 @@ const userSchema = new mongoose.Schema(
   }
 );
 
+// Query performance indexes for admin/student management
+userSchema.index({ role: 1, status: 1, classLevel: 1, createdAt: -1 });
+
 // Pre-save hook to hash the password before saving to the database
 
 userSchema.pre('save', async function () {

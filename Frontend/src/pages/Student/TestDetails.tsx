@@ -75,39 +75,100 @@ export default function TestDetailsPage() {
             {errorMessage || 'Failed to load test details.'}
           </div>
         ) : (
-          <div className="bg-white border-4 border-brand-black shadow-solid overflow-hidden">
-            <div className="bg-brand-black text-white p-5 border-b-4 border-brand-black">
-              <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight">{data.test.title}</h1>
-              <p className="mt-2 text-sm font-medium text-white/80">
-                {data.test.subject}
-                {data.test.chapter ? ` • ${data.test.chapter}` : ''}
-              </p>
+          <div className="max-md:space-y-4 md:bg-white md:border-4 md:border-brand-black md:shadow-solid md:overflow-hidden">
+            {/* Mobile: illustration + stacked sections (wireframe) */}
+            <div className="md:hidden flex justify-center py-2">
+              <img src="/for-mobile.png" alt="" className="max-h-44 w-auto object-contain border-2 border-brand-black bg-white shadow-solid-sm rounded-lg" />
             </div>
 
-            <div className="p-5">
-              {data.test.description ? (
-                <p className="text-sm font-medium text-brand-black/80">{data.test.description}</p>
-              ) : null}
+            <div className="md:hidden bg-white border-4 border-brand-black shadow-solid rounded-lg overflow-hidden">
+              <div className="bg-brand-black text-white px-4 py-3 border-b-4 border-brand-black">
+                <div className="text-[10px] font-black uppercase text-white/70">Test details</div>
+                <h1 className="text-xl font-black uppercase tracking-tight leading-tight">{data.test.title}</h1>
+                <p className="mt-1 text-xs font-medium text-white/85">
+                  {data.test.subject}
+                  {data.test.chapter ? ` • ${data.test.chapter}` : ''}
+                </p>
+              </div>
+              <div className="p-4 space-y-3">
+                {data.test.description ? (
+                  <p className="text-sm font-medium text-brand-black/80">{data.test.description}</p>
+                ) : null}
+                <div className="grid grid-cols-2 gap-2">
+                  <InfoTile label="Duration" value={`${data.test.duration} min`} />
+                  <InfoTile label="Marks" value={`${data.test.totalMarks}`} />
+                  <InfoTile label="Questions" value={`${data.test.questions.length}`} />
+                  <InfoTile label="Status" value="Published" />
+                </div>
+                <div className="text-[11px] font-bold border-2 border-brand-black p-3 bg-brand-gray/10">
+                  <div>
+                    Starts: <span className="font-medium">{formatDateTime(data.test.startTime)}</span>
+                  </div>
+                  <div className="mt-1">
+                    Ends: <span className="font-medium">{formatDateTime(data.test.endTime)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-              <div className="mt-5 grid grid-cols-2 md:grid-cols-4 gap-4">
-                <InfoTile label="Duration" value={`${data.test.duration} min`} />
-                <InfoTile label="Marks" value={`${data.test.totalMarks}`} />
-                <InfoTile label="Questions" value={`${data.test.questions.length}`} />
-                <InfoTile label="Status" value="Published" />
+            <div className="md:hidden bg-white border-4 border-brand-black shadow-solid rounded-lg p-4">
+              <div className="font-black uppercase text-sm border-b-2 border-brand-black pb-2">Instructions</div>
+              <ul className="mt-3 space-y-2 text-sm font-medium text-brand-black/80 list-disc pl-5">
+                <li>Each question has exactly one correct option. You can move back and change answers until you submit.</li>
+                <li>The timer counts down from your first entry into the attempt. Submit before time runs out.</li>
+                <li>Use the question palette to jump between questions and mark items for review.</li>
+                <li>After submit, results unlock when the test window ends.</li>
+              </ul>
+            </div>
+
+            <div className="md:hidden sticky bottom-3 z-10 pt-2">
+              <Link
+                to={`/tests/${data.test._id}/start`}
+                className="block w-full text-center py-4 bg-brand-orange border-2 border-brand-black font-black uppercase shadow-solid rounded-lg"
+              >
+                Start
+              </Link>
+            </div>
+
+            {/* Desktop / tablet: original card */}
+            <div className="hidden md:block bg-white border-4 border-brand-black shadow-solid overflow-hidden">
+              <div className="bg-brand-black text-white p-5 border-b-4 border-brand-black">
+                <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight">{data.test.title}</h1>
+                <p className="mt-2 text-sm font-medium text-white/80">
+                  {data.test.subject}
+                  {data.test.chapter ? ` • ${data.test.chapter}` : ''}
+                </p>
               </div>
 
-              <div className="mt-5 text-xs font-bold">
-                <div>Starts: <span className="font-medium">{formatDateTime(data.test.startTime)}</span></div>
-                <div>Ends: <span className="font-medium">{formatDateTime(data.test.endTime)}</span></div>
-              </div>
+              <div className="p-5">
+                {data.test.description ? (
+                  <p className="text-sm font-medium text-brand-black/80">{data.test.description}</p>
+                ) : null}
 
-              <div className="mt-6 flex flex-col sm:flex-row gap-3">
-                <Link
-                  to={`/tests/${data.test._id}/attempt`}
-                  className="flex-1 inline-flex items-center justify-center py-3 bg-brand-orange border-2 border-brand-black font-black uppercase shadow-solid-sm hover:-translate-y-1 hover:-translate-x-1 hover:shadow-solid active:translate-y-0 active:translate-x-0 active:shadow-none transition-all"
-                >
-                  Start Attempt
-                </Link>
+                <div className="mt-5 grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <InfoTile label="Duration" value={`${data.test.duration} min`} />
+                  <InfoTile label="Marks" value={`${data.test.totalMarks}`} />
+                  <InfoTile label="Questions" value={`${data.test.questions.length}`} />
+                  <InfoTile label="Status" value="Published" />
+                </div>
+
+                <div className="mt-5 text-xs font-bold">
+                  <div>
+                    Starts: <span className="font-medium">{formatDateTime(data.test.startTime)}</span>
+                  </div>
+                  <div>
+                    Ends: <span className="font-medium">{formatDateTime(data.test.endTime)}</span>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex flex-col sm:flex-row gap-3">
+                  <Link
+                    to={`/tests/${data.test._id}/start`}
+                    className="flex-1 inline-flex items-center justify-center py-3 bg-brand-orange border-2 border-brand-black font-black uppercase shadow-solid-sm hover:-translate-y-1 hover:-translate-x-1 hover:shadow-solid active:translate-y-0 active:translate-x-0 active:shadow-none transition-all"
+                  >
+                    Start Attempt
+                  </Link>
+                </div>
               </div>
             </div>
           </div>

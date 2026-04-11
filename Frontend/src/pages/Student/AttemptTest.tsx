@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Menu, X } from 'lucide-react';
 import axiosInstance from '../../utils/axiosInstance';
 import ExamsBro from '../../assets/Exams-bro.svg';
 import { getApiMessage } from '../../utils/apiMessage';
+
+const ACCENT = '#ff5722';
 
 type StudentQuestion = {
   _id: string;
@@ -16,7 +20,7 @@ type TestDetails = {
   title: string;
   subject: string;
   chapter?: string;
-  duration: number; // minutes
+  duration: number;
   startTime: string;
   endTime: string;
   questions: StudentQuestion[];
@@ -39,11 +43,16 @@ const formatTime = (seconds: number) => {
   return `${mm}:${ss}`;
 };
 
+/** Multiple-choice label: a, b, c, d, … */
+const optionLetter = (index: number) => String.fromCharCode(97 + Math.min(index, 25));
+
 type AttemptDraft = {
   testId: string;
-  startedAt: number; // epoch ms
+  startedAt: number;
   activeIndex: number;
   answers: Record<string, number | null>;
+  marked?: Record<string, boolean>;
+  visitedIds?: string[];
 };
 
 export default function AttemptTestPage() {
@@ -53,7 +62,10 @@ export default function AttemptTestPage() {
   const startedAtRef = useRef<number>(Date.now());
   const [activeIndex, setActiveIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number | null>>({});
-  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [markedForReview, setMarkedForReview] = useState<Record<string, boolean>>({});
+  const [visitedIds, setVisitedIds] = useState<Record<string, boolean>>({});
+  const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+  const [isSubmitReviewOpen, setIsSubmitReviewOpen] = useState(false);
   const draftKey = useMemo(() => (id ? `attemptDraft:${id}` : null), [id]);
   const hasRestoredRef = useRef(false);
 
@@ -72,7 +84,6 @@ export default function AttemptTestPage() {
   const [remaining, setRemaining] = useState<number | null>(null);
   const [isTimerReady, setIsTimerReady] = useState(false);
 
-  // Restore draft once (if present) when test loads
   useEffect(() => {
     if (!test) return;
     if (!draftKey) return;
@@ -97,6 +108,9 @@ export default function AttemptTestPage() {
 
       startedAtRef.current = typeof draft.startedAt === 'number' ? draft.startedAt : Date.now();
       setAnswers(draft.answers || {});
+      setMarkedForReview(draft.marked || {});
+      const vis = draft.visitedIds || [];
+      setVisitedIds(Object.fromEntries(vis.map((qid) => [qid, true])));
       setActiveIndex(Math.min(Math.max(0, draft.activeIndex || 0), test.questions.length - 1));
 
       const elapsed = Math.floor((Date.now() - startedAtRef.current) / 1000);
@@ -109,12 +123,22 @@ export default function AttemptTestPage() {
     }
   }, [draftKey, test]);
 
-  // If id changes, allow restore for new test
   useEffect(() => {
     hasRestoredRef.current = false;
     setIsTimerReady(false);
     setRemaining(null);
+    setAnswers({});
+    setMarkedForReview({});
+    setVisitedIds({});
+    setActiveIndex(0);
   }, [id]);
+
+  useEffect(() => {
+    if (!test) return;
+    const q = test.questions[activeIndex];
+    if (!q) return;
+    setVisitedIds((prev) => (prev[q._id] ? prev : { ...prev, [q._id]: true }));
+  }, [test, activeIndex]);
 
   useEffect(() => {
     if (!test) return;
@@ -125,7 +149,6 @@ export default function AttemptTestPage() {
     return () => window.clearInterval(timer);
   }, [test?._id, remaining]);
 
-  // Persist draft (answers + navigation + startedAt)
   useEffect(() => {
     if (!test) return;
     if (!draftKey) return;
@@ -136,16 +159,18 @@ export default function AttemptTestPage() {
         startedAt: startedAtRef.current,
         activeIndex,
         answers,
+        marked: markedForReview,
+        visitedIds: Object.keys(visitedIds).filter((k) => visitedIds[k]),
       };
       try {
         localStorage.setItem(draftKey, JSON.stringify(draft));
       } catch {
-        // ignore storage failures (quota/private mode)
+        // ignore
       }
     }, 150);
 
     return () => window.clearTimeout(timeout);
-  }, [answers, activeIndex, draftKey, test?._id]);
+  }, [answers, activeIndex, markedForReview, visitedIds, draftKey, test?._id]);
 
   const submitMutation = useMutation({
     mutationFn: async (payload: SubmitPayload) => {
@@ -160,7 +185,8 @@ export default function AttemptTestPage() {
           // ignore
         }
       }
-      navigate('/dashboard');
+      if (id) navigate(`/tests/${id}/submitted`);
+      else navigate('/dashboard');
     },
   });
 
@@ -170,6 +196,19 @@ export default function AttemptTestPage() {
 
   const onClear = (questionId: string) => {
     setAnswers((prev) => ({ ...prev, [questionId]: null }));
+  };
+
+  const toggleMarkForReview = (questionId: string) => {
+    setMarkedForReview((prev) => ({ ...prev, [questionId]: !prev[questionId] }));
+  };
+
+  const goToIndex = (idx: number) => {
+    if (!test) return;
+    const next = Math.min(Math.max(0, idx), test.questions.length - 1);
+    setActiveIndex(next);
+    const q = test.questions[next];
+    if (q) setVisitedIds((p) => ({ ...p, [q._id]: true }));
+    setIsPaletteOpen(false);
   };
 
   const submitNow = () => {
@@ -189,13 +228,12 @@ export default function AttemptTestPage() {
     submitMutation.mutate(payload);
   };
 
-  const onSubmitClick = () => {
+  const openSubmitReview = () => {
     if (!test) return;
     if (submitMutation.isPending || submitMutation.isSuccess) return;
-    setIsConfirmOpen(true);
+    setIsSubmitReviewOpen(true);
   };
 
-  // If timer hits 0, auto-submit once
   useEffect(() => {
     if (!test) return;
     if (!isTimerReady) return;
@@ -205,7 +243,6 @@ export default function AttemptTestPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remaining, isTimerReady, test?._id]);
 
-  // Warn before tab close/refresh while attempt is active
   useEffect(() => {
     if (!test) return;
     if (!isTimerReady) return;
@@ -215,7 +252,6 @@ export default function AttemptTestPage() {
 
     const handler = (e: BeforeUnloadEvent) => {
       e.preventDefault();
-      // required for Chrome to show confirmation
       e.returnValue = '';
     };
 
@@ -223,13 +259,20 @@ export default function AttemptTestPage() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [isTimerReady, remaining, submitMutation.isPending, submitMutation.isSuccess, test?._id]);
 
+  useEffect(() => {
+    if (!isPaletteOpen && !isSubmitReviewOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isPaletteOpen, isSubmitReviewOpen]);
+
   if (isLoading) {
     return (
-      <div className="min-h-[calc(100vh-88px)] px-4 py-8">
-        <div className="mx-auto max-w-4xl">
-          <div className="w-full h-40 flex items-center justify-center border-4 border-brand-black border-dashed opacity-60 font-bold uppercase animate-pulse">
-            Loading Test...
-          </div>
+      <div className="min-h-[100dvh] px-4 py-8">
+        <div className="mx-auto max-w-4xl flex h-40 items-center justify-center rounded-2xl border border-dashed border-slate-300 text-sm font-medium text-slate-500">
+          Loading test…
         </div>
       </div>
     );
@@ -238,16 +281,14 @@ export default function AttemptTestPage() {
   if (error || !test) {
     const msg = error ? getApiMessage(error, 'Failed to load test.') : 'Failed to load test.';
     return (
-      <div className="min-h-[calc(100vh-88px)] px-4 py-8">
-        <div className="mx-auto max-w-4xl">
-          <div className="p-8 bg-red-100 border-4 border-brand-black shadow-solid font-bold text-red-700">
-            {msg}
-          </div>
-          <div className="mt-4">
-            <Link to="/tests" className="inline-flex border-2 border-brand-black px-4 py-3 font-black uppercase shadow-solid-sm">
-              Back to Tests
-            </Link>
-          </div>
+      <div className="min-h-[100dvh] px-4 py-8">
+        <div className="mx-auto max-w-4xl rounded-2xl border border-red-200 bg-red-50/90 p-6 text-sm font-medium text-red-800">
+          {msg}
+        </div>
+        <div className="mt-4">
+          <Link to="/tests" className="text-sm font-semibold text-[#ff5722] underline-offset-2 hover:underline">
+            Back to tests
+          </Link>
         </div>
       </div>
     );
@@ -255,208 +296,498 @@ export default function AttemptTestPage() {
 
   const current = test.questions[activeIndex];
   const selected = current ? (answers[current._id] ?? null) : null;
+  const totalQ = test.questions.length;
   const unansweredCount = test.questions.reduce((acc, q) => {
     const v = answers[q._id];
     return v === undefined || v === null ? acc + 1 : acc;
   }, 0);
+  const answeredCount = totalQ - unansweredCount;
+  const markedCount = test.questions.filter((q) => markedForReview[q._id]).length;
+  const isLastQuestion = activeIndex === totalQ - 1;
+  const timerLabel = isTimerReady && remaining !== null ? formatTime(remaining) : '--:--';
+
+  const paletteClass = (q: StudentQuestion, idx: number) => {
+    const qid = q._id;
+    const answered = answers[qid] !== undefined && answers[qid] !== null;
+    const marked = Boolean(markedForReview[qid]);
+    const visited = Boolean(visitedIds[qid]);
+    const isCurrent = idx === activeIndex;
+
+    let fill = 'bg-slate-300 text-slate-800';
+    if (visited) {
+      if (answered && marked) fill = 'bg-violet-500 text-white';
+      else if (marked) fill = 'bg-violet-500 text-white';
+      else if (answered) fill = 'bg-emerald-500 text-white';
+      else fill = 'bg-white text-slate-800';
+    }
+    const border = 'border border-slate-200/90';
+    const ring = isCurrent ? ' ring-2 ring-[#ff5722] ring-offset-2 ring-offset-white' : '';
+    return `relative flex aspect-square w-full min-h-[2.75rem] max-h-[3rem] items-center justify-center rounded-xl text-sm font-semibold shadow-sm transition-transform active:scale-95 ${border} ${fill}${ring}`;
+  };
+
+  const questionGrid = (gridClassName: string) => (
+    <div className={gridClassName}>
+      {test.questions.map((q, idx) => {
+        const answered = answers[q._id] !== undefined && answers[q._id] !== null;
+        const marked = Boolean(markedForReview[q._id]);
+        return (
+          <button
+            key={q._id}
+            type="button"
+            onClick={() => goToIndex(idx)}
+            className={paletteClass(q, idx)}
+            aria-label={`Go to question ${idx + 1}`}
+          >
+            {answered && marked ? (
+              <span
+                className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-amber-400 ring-1 ring-amber-200"
+                aria-hidden
+              />
+            ) : null}
+            {idx + 1}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const overlayLegend = (
+    <div className="grid grid-cols-1 gap-2.5 text-left text-[11px] font-medium leading-snug text-white/95 sm:grid-cols-2">
+      <span className="flex items-center gap-2.5">
+        <span className="h-4 w-4 shrink-0 rounded-md bg-emerald-500 ring-2 ring-white/50" /> answered
+      </span>
+      <span className="flex items-center gap-2.5">
+        <span className="h-4 w-4 shrink-0 rounded-md bg-slate-300 ring-2 ring-white/40" /> Not visited
+      </span>
+      <span className="flex items-center gap-2.5">
+        <span className="h-4 w-4 shrink-0 rounded-md bg-violet-500 ring-2 ring-white/50" /> Marked for review
+      </span>
+      <span className="flex items-center gap-2.5">
+        <span className="relative flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-violet-500 ring-2 ring-white/50">
+          <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-300 ring-2 ring-amber-100" />
+        </span>
+        answered &amp; Marked for review
+      </span>
+    </div>
+  );
+
+  const desktopLegend = (
+    <div className="grid grid-cols-1 gap-2.5 text-[11px] font-medium leading-snug text-slate-600 sm:grid-cols-2">
+      <span className="flex items-center gap-2.5">
+        <span className="h-3.5 w-3.5 shrink-0 rounded-md bg-emerald-500 ring-1 ring-slate-200" /> answered
+      </span>
+      <span className="flex items-center gap-2.5">
+        <span className="h-3.5 w-3.5 shrink-0 rounded-md bg-slate-300 ring-1 ring-slate-200" /> Not visited
+      </span>
+      <span className="flex items-center gap-2.5">
+        <span className="h-3.5 w-3.5 shrink-0 rounded-md bg-violet-500 ring-1 ring-slate-200" /> Marked for review
+      </span>
+      <span className="flex items-center gap-2.5">
+        <span className="relative flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-md bg-violet-500 ring-1 ring-slate-200">
+          <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-amber-300" />
+        </span>
+        answered &amp; Marked for review
+      </span>
+    </div>
+  );
 
   return (
-    <div className="min-h-[calc(100vh-88px)] px-4 py-6 relative">
+    <div className="relative min-h-[100dvh] bg-slate-50/80 max-md:pb-28">
       <img
         src={ExamsBro}
         alt=""
-        className="pointer-events-none hidden lg:block absolute right-0 bottom-0 w-[520px] max-w-none opacity-10"
+        className="pointer-events-none absolute bottom-0 right-0 hidden w-[520px] max-w-none opacity-[0.06] lg:block"
       />
 
-      <div className="mx-auto w-full max-w-6xl relative z-10">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-black uppercase">{test.title}</h1>
-            <p className="text-sm font-medium text-brand-black/70 mt-1">
-              {test.subject}
-              {test.chapter ? ` • ${test.chapter}` : ''}
-            </p>
+      {/* Mobile header — wireframe: menu | Test Info, then Timer | Submit */}
+      <div className="sticky top-0 z-[56] bg-white/95 pt-[env(safe-area-inset-top,0px)] md:hidden">
+        <div className="border-b border-slate-200/90 bg-white/95 backdrop-blur-md">
+          <div className="flex items-center justify-between px-3 py-2.5">
+            <button
+              type="button"
+              onClick={() => setIsPaletteOpen((o) => !o)}
+              className={[
+                'flex h-10 w-10 items-center justify-center rounded-xl border shadow-sm transition active:scale-95',
+                isPaletteOpen
+                  ? 'border-orange-600/25 bg-[#ff5722] text-white shadow-md shadow-orange-500/25'
+                  : 'border-slate-200 bg-white text-slate-800 hover:bg-slate-50',
+              ].join(' ')}
+              aria-label={isPaletteOpen ? 'Close question map' : 'Open question map'}
+              aria-expanded={isPaletteOpen}
+            >
+              <Menu size={20} strokeWidth={2.2} />
+            </button>
+            <span className="text-sm font-semibold tracking-tight text-slate-900">Test Info</span>
+            <div className="w-10" aria-hidden />
           </div>
-
-          <div className="flex items-center gap-3">
-            <div className="border-4 border-brand-black bg-white shadow-solid-sm px-4 py-2 font-black uppercase">
-              Time:{' '}
-              <span className="text-brand-orange tabular-nums inline-block w-[5ch] text-right">
-                {isTimerReady && remaining !== null ? formatTime(remaining) : '--:--'}
-              </span>
+          <div className="flex items-center justify-between gap-3 px-3 pb-3">
+            <div className="rounded-full border border-slate-200/90 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm">
+              <span className="text-slate-500">Timer </span>
+              <span className="tabular-nums text-slate-900">{timerLabel}</span>
             </div>
             <button
               type="button"
-              onClick={onSubmitClick}
+              onClick={openSubmitReview}
               disabled={submitMutation.isPending}
-              className="px-5 py-3 bg-brand-orange border-2 border-brand-black font-black uppercase shadow-solid-sm hover:-translate-y-1 hover:-translate-x-1 hover:shadow-solid active:translate-y-0 active:translate-x-0 active:shadow-none transition-all disabled:opacity-70"
+              className="rounded-xl px-5 py-2.5 text-xs font-semibold uppercase tracking-wide text-white shadow-md transition hover:brightness-105 active:scale-[0.98] disabled:opacity-60"
+              style={{ backgroundColor: ACCENT, boxShadow: '0 8px 24px -4px rgba(255,87,34,0.45)' }}
             >
-              {submitMutation.isPending ? 'Submitting...' : 'Submit'}
+              Submit
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="relative z-10 mx-auto w-full max-w-6xl px-4 py-6 max-md:pt-4">
+        {/* Desktop: wireframe-style chrome (no global nav) */}
+        <div className="mb-6 hidden md:block">
+          <div className="flex items-center justify-center rounded-2xl border border-slate-200/90 bg-white px-4 py-3 shadow-sm">
+            <span className="text-sm font-semibold tracking-tight text-slate-900">Test Info</span>
+          </div>
+          <p className="mt-2 text-center text-xs font-medium text-slate-500">
+            {test.title}
+            <span className="text-slate-400"> · </span>
+            {test.subject}
+            {test.chapter ? ` · ${test.chapter}` : ''}
+          </p>
+          <div className="mt-3 flex flex-wrap items-center justify-end gap-3">
+            <div className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm">
+              Timer <span className="tabular-nums text-[#ff5722]">{timerLabel}</span>
+            </div>
+            <button
+              type="button"
+              onClick={openSubmitReview}
+              disabled={submitMutation.isPending}
+              className="rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:brightness-105 disabled:opacity-60"
+              style={{ backgroundColor: ACCENT, boxShadow: '0 8px 24px -4px rgba(255,87,34,0.4)' }}
+            >
+              Submit
             </button>
           </div>
         </div>
 
         {submitMutation.isError ? (
-          <div className="mb-4 p-4 bg-red-100 border-2 border-brand-black text-red-700 font-bold shadow-solid-sm">
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50/90 p-4 text-sm font-medium text-red-800">
             {getApiMessage(submitMutation.error, 'Submission failed. Please try again.')}
           </div>
         ) : null}
 
-        {/* Submit confirmation modal */}
-        {isConfirmOpen ? (
-          <div className="fixed inset-0 z-50">
-            <button
-              type="button"
-              className="absolute inset-0 bg-brand-black/60"
-              aria-label="Close submit confirmation"
-              onClick={() => setIsConfirmOpen(false)}
-            />
-            <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 bg-white border-4 border-brand-black shadow-solid">
-              <div className="bg-brand-black text-white p-4 border-b-4 border-brand-black">
-                <div className="font-black uppercase text-lg">Confirm submission</div>
-                <div className="text-sm font-medium text-white/80 mt-1">
-                  Once submitted, you can’t change answers.
+        {/* Submit review modal — opened from Submit header or Finish */}
+        <AnimatePresence>
+          {isSubmitReviewOpen ? (
+            <div className="fixed inset-0 z-[70] flex items-end justify-center p-4 sm:items-center">
+              <motion.button
+                type="button"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-slate-900/45 backdrop-blur-sm"
+                aria-label="Close"
+                onClick={() => setIsSubmitReviewOpen(false)}
+              />
+              <motion.div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="submit-review-title"
+                initial={{ opacity: 0, y: 24, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 16, scale: 0.98 }}
+                transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+                className="relative w-full max-w-md overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-2xl shadow-slate-900/15 ring-1 ring-slate-900/5"
+              >
+                <div className="border-b border-slate-100 bg-gradient-to-br from-slate-50 to-white px-6 py-5">
+                  <h2 id="submit-review-title" className="text-lg font-semibold tracking-tight text-slate-900">
+                    Ready to submit?
+                  </h2>
+                  <p className="mt-1.5 text-sm leading-relaxed text-slate-600">
+                    You won&apos;t be able to change your answers after this. Please review the summary below.
+                  </p>
                 </div>
-              </div>
-              <div className="p-5 space-y-4">
-                <div className="border-2 border-brand-black p-4 shadow-solid-sm bg-white">
-                  <div className="text-xs font-bold uppercase tracking-widest text-brand-black/70">Unanswered</div>
-                  <div className="mt-2 text-2xl font-black">
-                    {unansweredCount} / {test.questions.length}
+                <div className="space-y-3 px-6 py-5">
+                  <div className="grid grid-cols-2 gap-3">
+                    <motion.div
+                      initial={{ opacity: 0, x: -6 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.05 }}
+                      className="rounded-2xl border border-emerald-200/80 bg-emerald-50/90 p-4"
+                    >
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-800/80">Attempted</p>
+                      <p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-900">
+                        {answeredCount}
+                        <span className="text-sm font-medium text-emerald-700"> / {totalQ}</span>
+                      </p>
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, x: 6 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.08 }}
+                      className="rounded-2xl border border-amber-200/80 bg-amber-50/90 p-4"
+                    >
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-900/80">Left</p>
+                      <p className="mt-1 text-2xl font-semibold tabular-nums text-amber-950">{unansweredCount}</p>
+                      <p className="text-[11px] font-medium text-amber-800/80">unanswered</p>
+                    </motion.div>
                   </div>
-                  <div className="mt-2 text-sm font-medium text-brand-black/70">
-                    You can still go back and answer before submitting.
-                  </div>
+                  {markedCount > 0 ? (
+                    <div className="rounded-2xl border border-violet-200/70 bg-violet-50/80 px-4 py-3 text-center text-xs font-medium text-violet-900">
+                      {markedCount} question{markedCount === 1 ? '' : 's'} marked for review
+                    </div>
+                  ) : null}
                 </div>
-
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsConfirmOpen(false)}
-                    className="flex-1 py-3 bg-white border-2 border-brand-black font-black uppercase shadow-solid-sm"
-                  >
-                    Continue attempt
-                  </button>
+                <div className="flex flex-col gap-2 border-t border-slate-100 bg-slate-50/50 px-6 py-4 sm:flex-row sm:flex-row-reverse">
                   <button
                     type="button"
                     onClick={() => {
-                      setIsConfirmOpen(false);
+                      setIsSubmitReviewOpen(false);
                       submitNow();
                     }}
-                    className="flex-1 py-3 bg-brand-orange border-2 border-brand-black font-black uppercase shadow-solid-sm disabled:opacity-70"
                     disabled={submitMutation.isPending}
+                    className="w-full rounded-xl py-3.5 text-sm font-semibold text-white transition hover:brightness-105 active:scale-[0.99] disabled:opacity-60 sm:flex-1"
+                    style={{ backgroundColor: ACCENT, boxShadow: '0 6px 20px -2px rgba(255,87,34,0.45)' }}
                   >
-                    Submit now
+                    {submitMutation.isPending ? 'Submitting…' : 'Submit test'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsSubmitReviewOpen(false)}
+                    className="w-full rounded-xl border border-slate-200 bg-white py-3.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 sm:flex-1"
+                  >
+                    Continue test
                   </button>
                 </div>
+              </motion.div>
+            </div>
+          ) : null}
+        </AnimatePresence>
+
+        {/* Navigation overlay (mobile) — orange sheet */}
+        <AnimatePresence>
+          {isPaletteOpen ? (
+            <motion.div
+              className="fixed left-0 right-0 z-[55] flex flex-col justify-end md:hidden"
+              style={{
+                top: 'calc(6.75rem + env(safe-area-inset-top, 0px))',
+                bottom: 'calc(4.75rem + env(safe-area-inset-bottom, 0px))',
+              }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <button
+                type="button"
+                className="min-h-0 w-full flex-1 bg-slate-900/30"
+                aria-label="Close overlay"
+                onClick={() => setIsPaletteOpen(false)}
+              />
+              <motion.div
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                transition={{ type: 'spring', stiffness: 420, damping: 36 }}
+                className="relative max-h-[min(82vh,100%)] w-full shrink-0 overflow-hidden rounded-t-[1.75rem] shadow-[0_-12px_40px_rgba(0,0,0,0.2)]"
+                style={{ backgroundColor: ACCENT }}
+              >
+                <div className="max-h-[min(82vh,100%)] overflow-y-auto px-4 pb-4 pt-3">
+                  <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/40" />
+                  {/* Wireframe: dashed legend box on orange */}
+                  <div className="relative mx-auto max-w-lg rounded-2xl border-2 border-dashed border-white/80 bg-white/[0.12] p-4 backdrop-blur-[2px]">
+                    <button
+                      type="button"
+                      onClick={() => setIsPaletteOpen(false)}
+                      className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-white/25 text-white shadow-sm transition hover:bg-white/35"
+                      aria-label="Close"
+                    >
+                      <X size={18} strokeWidth={2.5} />
+                    </button>
+                    <p className="mb-3 pr-11 text-[10px] font-bold uppercase tracking-[0.2em] text-white/85">Legend</p>
+                    {overlayLegend}
+                  </div>
+                  {/* Wireframe: nested light panel — timer top-right + square grid */}
+                  <div className="mx-auto mt-4 max-w-lg rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xl shadow-slate-900/10">
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <span className="text-sm font-semibold text-slate-900">Questions</span>
+                      <span className="shrink-0 rounded-full border border-slate-200/90 bg-slate-50 px-3 py-1.5 text-xs font-semibold tabular-nums text-slate-800 shadow-sm">
+                        <span className="text-slate-500">Timer </span>
+                        {timerLabel}
+                      </span>
+                    </div>
+                    {questionGrid('grid grid-cols-5 gap-2 sm:grid-cols-6')}
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_280px]">
+          <motion.div
+            layout
+            className="overflow-hidden rounded-3xl border border-slate-200/90 bg-white shadow-lg shadow-slate-200/40 ring-1 ring-slate-900/[0.04]"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/80 px-4 py-3 md:px-5">
+              <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Q.No{' '}
+                <span className="text-base font-semibold text-slate-900">
+                  {activeIndex + 1}
+                </span>
+                <span className="font-medium text-slate-400"> / {totalQ}</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {selected !== null ? (
+                  <span className="rounded-full bg-[#ff5722]/12 px-3 py-1 text-[11px] font-semibold text-[#c2410c] ring-1 ring-[#ff5722]/20">
+                    Option {optionLetter(selected)} selected
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-600">Unanswered</span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => toggleMarkForReview(current._id)}
+                  className={[
+                    'rounded-full border px-3 py-1 text-[11px] font-semibold transition',
+                    markedForReview[current._id]
+                      ? 'border-violet-300 bg-violet-100 text-violet-900'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
+                  ].join(' ')}
+                >
+                  {markedForReview[current._id] ? 'Marked' : 'Mark review'}
+                </button>
               </div>
             </div>
-          </div>
-        ) : null}
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-6">
-          {/* Question card */}
-          <div className="bg-white border-4 border-brand-black shadow-solid overflow-hidden">
-            <div className="bg-brand-black text-white p-4 border-b-4 border-brand-black flex items-center justify-between">
-              <div className="font-black uppercase">
-                Question {activeIndex + 1} / {test.questions.length}
-              </div>
-              {selected !== null ? (
-                <div className="text-xs font-black uppercase bg-brand-orange text-brand-black border-2 border-brand-black px-3 py-1 shadow-solid-sm">
-                  Selected: {selected + 1}
-                </div>
-              ) : (
-                <div className="text-xs font-black uppercase bg-brand-gray/30 text-white border-2 border-brand-black px-3 py-1 shadow-solid-sm">
-                  Not answered
-                </div>
-              )}
-            </div>
+            <div className="p-4 md:p-6">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Question</p>
+              <p className="mt-2 text-base font-medium leading-relaxed text-slate-900 md:text-lg">{current.questionText}</p>
 
-            <div className="p-5">
-              <div className="text-lg font-medium">{current.questionText}</div>
-
-              <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="mt-6 flex flex-col gap-3">
                 {current.options.map((opt, idx) => {
                   const isSelected = selected === idx;
+                  const letter = optionLetter(idx);
                   return (
-                    <button
+                    <motion.button
                       key={idx}
                       type="button"
+                      layout
                       onClick={() => onSelect(current._id, idx)}
+                      whileTap={{ scale: 0.99 }}
                       className={[
-                        'text-left border-2 border-brand-black p-4 font-bold shadow-solid-sm transition-all',
-                        isSelected ? 'bg-brand-orange' : 'bg-white hover:bg-brand-gray/10',
+                        'flex w-full items-stretch gap-3 rounded-2xl border px-3 py-3 text-left transition-all duration-200 md:px-4 md:py-4',
+                        isSelected
+                          ? 'border-[#ff5722]/50 bg-gradient-to-br from-orange-50 to-amber-50/50 shadow-md shadow-orange-500/10 ring-2 ring-[#ff5722]/25'
+                          : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/80',
                       ].join(' ')}
                     >
-                      <div className="text-xs font-black uppercase text-brand-black/70">Option {idx + 1}</div>
-                      <div className="mt-1">{opt}</div>
-                    </button>
+                      <span
+                        className={[
+                          'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-sm font-bold tabular-nums',
+                          isSelected
+                            ? 'border-[#ff5722]/40 bg-[#ff5722] text-white shadow-sm'
+                            : 'border-slate-200 bg-slate-50 text-slate-700',
+                        ].join(' ')}
+                        aria-hidden
+                      >
+                        {letter}
+                      </span>
+                      <span className="min-w-0 flex-1 self-center text-sm font-medium leading-snug text-slate-800">{opt}</span>
+                    </motion.button>
                   );
                 })}
               </div>
 
-              <div className="mt-6 flex flex-col sm:flex-row gap-3">
+              <div className="mt-8 hidden grid-cols-3 gap-3 md:grid">
                 <button
                   type="button"
-                  onClick={() => setActiveIndex((i) => Math.max(0, i - 1))}
+                  onClick={() => goToIndex(activeIndex - 1)}
                   disabled={activeIndex === 0}
-                  className="flex-1 py-3 bg-white border-2 border-brand-black font-black uppercase shadow-solid-sm disabled:opacity-60"
+                  className="rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-40"
                 >
-                  Previous
+                  ← Prev
                 </button>
                 <button
                   type="button"
                   onClick={() => onClear(current._id)}
-                  className="flex-1 py-3 bg-white border-2 border-brand-black font-black uppercase shadow-solid-sm"
+                  className="rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
                 >
                   Clear
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveIndex((i) => Math.min(test.questions.length - 1, i + 1))}
-                  disabled={activeIndex === test.questions.length - 1}
-                  className="flex-1 py-3 bg-white border-2 border-brand-black font-black uppercase shadow-solid-sm disabled:opacity-60"
-                >
-                  Next
-                </button>
+                {isLastQuestion ? (
+                  <button
+                    type="button"
+                    onClick={openSubmitReview}
+                    className="rounded-xl py-3 text-sm font-semibold text-white shadow-lg transition hover:brightness-105"
+                    style={{ backgroundColor: ACCENT, boxShadow: '0 6px 20px -2px rgba(255,87,34,0.4)' }}
+                  >
+                    Finish
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => goToIndex(activeIndex + 1)}
+                    className="rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+                  >
+                    Next →
+                  </button>
+                )}
               </div>
             </div>
-          </div>
+          </motion.div>
 
-          {/* Navigator */}
-          <div className="bg-white border-4 border-brand-black shadow-solid p-4">
-            <div className="font-black uppercase mb-3">Navigator</div>
-            <div className="grid grid-cols-5 gap-2">
-              {test.questions.map((q, idx) => {
-                const val = answers[q._id];
-                const status = val === undefined || val === null ? 'unanswered' : 'answered';
-                const bg =
-                  idx === activeIndex
-                    ? 'bg-brand-black text-white'
-                    : status === 'answered'
-                      ? 'bg-green-400'
-                      : 'bg-white';
-                return (
-                  <button
-                    key={q._id}
-                    type="button"
-                    onClick={() => setActiveIndex(idx)}
-                    className={`h-10 border-2 border-brand-black font-black shadow-solid-sm ${bg}`}
-                    aria-label={`Go to question ${idx + 1}`}
-                  >
-                    {idx + 1}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="mt-4 text-xs font-bold text-brand-black/70">
-              Green = answered • White = unanswered
+          <div className="hidden rounded-3xl border border-slate-200/90 bg-white p-4 shadow-lg shadow-slate-200/30 lg:block">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Navigator</p>
+            <div className="mt-3 rounded-xl border-2 border-dashed border-slate-300/90 bg-slate-50/40 p-3">{desktopLegend}</div>
+            <div className="mt-4 rounded-2xl border border-slate-200/90 bg-white p-3 shadow-inner shadow-slate-200/40">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-slate-800">Questions</span>
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold tabular-nums text-slate-800">
+                  <span className="font-medium text-slate-500">Timer </span>
+                  {timerLabel}
+                </span>
+              </div>
+              {questionGrid('grid grid-cols-5 gap-2')}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Mobile footer */}
+      <div className="fixed bottom-0 left-0 right-0 z-[60] border-t border-slate-200/90 bg-white/95 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md md:hidden">
+        <div className="mx-auto grid max-w-lg grid-cols-3 gap-2">
+          <button
+            type="button"
+            onClick={() => goToIndex(activeIndex - 1)}
+            disabled={activeIndex === 0}
+            className="rounded-xl border border-slate-200 bg-white py-3.5 text-sm font-semibold text-slate-800 shadow-sm transition active:scale-[0.98] disabled:opacity-35"
+          >
+            &lt;
+          </button>
+          <button
+            type="button"
+            onClick={() => onClear(current._id)}
+            className="rounded-xl border border-slate-200 bg-white py-3.5 text-sm font-semibold text-slate-700 shadow-sm transition active:scale-[0.98]"
+          >
+            Clear
+          </button>
+          {isLastQuestion ? (
+            <button
+              type="button"
+              onClick={openSubmitReview}
+              className="rounded-xl py-3.5 text-sm font-semibold text-white shadow-lg transition active:scale-[0.98]"
+              style={{ backgroundColor: ACCENT, boxShadow: '0 6px 18px -2px rgba(255,87,34,0.45)' }}
+            >
+              Finish
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => goToIndex(activeIndex + 1)}
+              className="rounded-xl border border-slate-200 bg-white py-3.5 text-sm font-semibold text-slate-800 shadow-sm transition active:scale-[0.98]"
+            >
+              &gt;
+            </button>
+          )}
         </div>
       </div>
     </div>
   );
 }
-

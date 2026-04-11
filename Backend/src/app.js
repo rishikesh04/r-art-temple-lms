@@ -23,10 +23,24 @@ const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
 const jsonLimit = process.env.JSON_BODY_LIMIT || '200kb';
 const defaultWindowMs = Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000);
 const defaultMax = Number(process.env.RATE_LIMIT_MAX || 400);
-const authMax = Number(process.env.AUTH_RATE_LIMIT_MAX || 25);
 const attemptsSubmitMax = Number(process.env.ATTEMPT_SUBMIT_RATE_LIMIT_MAX || 120);
 
 // MIDDLEWARES
+
+// Minimal request logging for launch monitoring (skip health checks)
+app.use((req, res, next) => {
+  if (req.path === '/api/health') {
+    return next();
+  }
+  const startedAt = Date.now();
+  res.on('finish', () => {
+    const durationMs = Date.now() - startedAt;
+    console.log(
+      `[${new Date().toISOString()}] ${req.method} ${req.originalUrl} ${res.statusCode} ${durationMs}ms`
+    );
+  });
+  return next();
+});
 
 // Parse incoming JSON requests
 app.use(express.json({ limit: jsonLimit }));
@@ -65,19 +79,6 @@ const apiLimiter = rateLimit({
 });
 app.use('/api', apiLimiter);
 
-// Stricter limiter for auth endpoints
-const authLimiter = rateLimit({
-  windowMs: defaultWindowMs,
-  max: authMax,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    success: false,
-    message: 'Too many authentication attempts. Please wait and try again.',
-  },
-});
-app.use('/api/auth', authLimiter);
-
 // Stricter limiter for attempt submissions
 const submitLimiter = rateLimit({
   windowMs: defaultWindowMs,
@@ -97,6 +98,16 @@ app.use('/api/attempts/submit', submitLimiter);
 // Basic test route to check if the server is running
 app.get('/', (req, res) => {
   res.status(200).json({ message: 'Welcome to R Art Temple LMS API!' });
+});
+
+// Health endpoint for uptime/monitoring probes
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    success: true,
+    status: 'ok',
+    uptimeSeconds: Math.round(process.uptime()),
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // Mount the authentication routes

@@ -21,6 +21,7 @@ type AttemptAnswer = {
 
 type AttemptDetails = {
   attemptId: string;
+  testId: string | null;
   testTitle: string;
   subject: string | null;
   score: number;
@@ -143,6 +144,17 @@ function ResultView({ attempt }: { attempt: AttemptDetails }) {
           <Stat label="Accuracy" value={`${attempt.accuracy}%`} />
           <Stat label="Questions" value={`${attempt.totalQuestions}`} />
         </div>
+
+        {attempt.testId ? (
+          <div className="px-5 pb-5">
+            <Link
+              to={`/tests/${attempt.testId}/leaderboard`}
+              className="inline-flex items-center justify-center px-4 py-3 bg-brand-orange border-2 border-brand-black font-black uppercase shadow-solid-sm hover:-translate-y-1 hover:-translate-x-1 hover:shadow-solid active:translate-y-0 active:translate-x-0 active:shadow-none transition-all"
+            >
+              View Leaderboard
+            </Link>
+          </div>
+        ) : null}
       </div>
 
       <div className="bg-white border-4 border-brand-black shadow-solid overflow-hidden">
