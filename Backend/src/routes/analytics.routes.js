@@ -1,12 +1,12 @@
 import express from 'express';
-import { getStudentOverview } from '../controllers/analytics.controller.js';
+import { getStudentOverview, getTopicPerformance } from '../controllers/analytics.controller.js';
 import { protect } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
-// Route: GET /api/analytics/me/overview
-// Protect middleware ensures req.user exists. 
-// Controller logic will ensure user is a student and approved.
 router.get('/me/overview', protect, getStudentOverview);
+
+// Route: GET /api/analytics/topics
+router.get('/topics', protect, getTopicPerformance);
 
 export default router;
