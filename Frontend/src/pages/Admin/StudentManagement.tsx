@@ -1,7 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import axiosInstance from '../../utils/axiosInstance';
-import { CheckCircle, XCircle, Mail, Phone } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { 
+  CheckCircle, 
+  XCircle, 
+  Mail, 
+  Phone, 
+  Search, 
+  Filter, 
+  UserCheck, 
+  UserMinus,
+  ArrowUpDown,
+  MoreVertical,
+  ChevronDown,
+  Users
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Student {
   _id: string;
@@ -16,39 +29,36 @@ export default function StudentManagement() {
   const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'pending' | 'all'>('pending');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedClass, setSelectedClass] = useState<string>('');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+  const classes = ['6', '7', '8', '9', '10', '11', '12'];
 
   useEffect(() => {
-    fetchStudents(activeTab);
-  }, [activeTab]);
+    fetchStudents();
+  }, [activeTab, selectedClass]);
 
-  const fetchStudents = async (tab: 'pending' | 'all') => {
+  const fetchStudents = async () => {
     setIsLoading(true);
     try {
-      const endpoint = tab === 'pending' ? '/admin/students/pending' : '/admin/students';
-      const res = await axiosInstance.get(endpoint);
+      let endpoint = activeTab === 'pending' ? '/admin/students/pending' : '/admin/students';
       
-      // Let's print exactly what the backend sent us to the browser console!
-      console.log("BACKEND RESPONSE:", res.data);
+      // Add class filter if selected
+      if (selectedClass) {
+        endpoint += `${endpoint.includes('?') ? '&' : '?'}classLevel=${selectedClass}`;
+      }
 
-      // SAFE EXTRACTION:
-      //  check multiple common backend response shapes to find the array of students.
-      // If it can't find an array, it safely defaults to an empty array [] so the app never crashes.
-      const studentData = 
-        res.data.data ||       // Try { success: true, data: [...] }
-        res.data.students ||   // Try { count: X, students: [...] }
-        res.data;              // Try just returning an array [...]
+      const res = await axiosInstance.get(endpoint);
+      const studentData = res.data.data || res.data.students || res.data;
 
-      // Ensure it is ACTUALLY an array before setting it
       if (Array.isArray(studentData)) {
         setStudents(studentData);
       } else {
-        console.error("Backend did not return an array of students. It returned:", studentData);
-        setStudents([]); // Safe default
+        setStudents([]);
       }
-
     } catch (error) {
-      console.error('Failed to fetch students', error);
-      setStudents([]); // Safe default if the request fails completely
+      setStudents([]);
     } finally {
       setIsLoading(false);
     }
@@ -56,97 +66,205 @@ export default function StudentManagement() {
 
   const handleAction = async (id: string, action: 'approve' | 'reject') => {
     try {
-      // Call the backend API you built!
       await axiosInstance.patch(`/admin/students/${id}/${action}`);
-      
-      // UI Magic: Remove the student from the screen instantly without reloading the page
       if (activeTab === 'pending') {
         setStudents(prev => prev.filter(s => s._id !== id));
       } else {
-        fetchStudents('all'); // Refresh if on 'all' tab to update their status badge
+        fetchStudents();
       }
     } catch (error) {
-      alert(`Failed to ${action} student. Check console.`);
+      console.error(`Failed to ${action} student`);
     }
   };
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-12">
-      
-      <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tight mb-2">Access Control</h1>
-          <p className="text-brand-black/70 font-medium">Manage student registrations and platform access.</p>
-        </div>
+  const filteredStudents = useMemo(() => {
+    return students.filter(s => 
+      s.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      s.email.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [students, searchQuery]);
 
-        {/* Brutalist Tabs */}
-        <div className="flex bg-white border-4 border-brand-black shadow-solid-sm w-fit">
+  return (
+    <div className="space-y-8">
+      
+      {/* Header */}
+      <section className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div>
+          <h1 className="text-3xl md:text-5xl font-bold text-slate-900 tracking-tight mb-2">Student Registry</h1>
+          <p className="text-slate-500 font-medium">Manage enrollment, verification and class assignments.</p>
+        </div>
+        
+        <div className="flex bg-white p-1 rounded-2xl border border-slate-200 shadow-sm w-fit">
           <button 
             onClick={() => setActiveTab('pending')}
-            className={`px-6 py-3 font-bold uppercase text-sm border-r-4 border-brand-black transition-colors ${activeTab === 'pending' ? 'bg-brand-orange text-brand-black' : 'hover:bg-brand-gray/20'}`}
+            className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'pending' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'text-slate-500 hover:text-slate-900'}`}
           >
-            Pending Requests
+            Verification <span className="ml-1 text-[10px] opacity-60 bg-white/20 px-1.5 py-0.5 rounded-md">NEW</span>
           </button>
           <button 
             onClick={() => setActiveTab('all')}
-            className={`px-6 py-3 font-bold uppercase text-sm transition-colors ${activeTab === 'all' ? 'bg-brand-black text-white' : 'hover:bg-brand-gray/20'}`}
+            className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'all' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'text-slate-500 hover:text-slate-900'}`}
           >
             All Students
           </button>
         </div>
-      </div>
+      </section>
 
-      {isLoading ? (
-        <div className="w-full h-40 flex items-center justify-center border-4 border-brand-black border-dashed opacity-50 font-bold uppercase animate-pulse">Scanning Database...</div>
-      ) : students.length === 0 ? (
-        <div className="w-full p-12 text-center border-4 border-brand-black bg-white shadow-solid">
-          <h2 className="text-2xl font-black uppercase text-brand-black/40">No {activeTab} students found.</h2>
+      {/* Filter Bar */}
+      <section className="flex flex-col md:flex-row gap-4">
+        <div className="flex-1 relative group">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-orange transition-colors" size={20} />
+          <input 
+            type="text" 
+            placeholder="Search by name or email..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-[24px] focus:outline-none focus:ring-4 focus:ring-orange-500/10 focus:border-brand-orange transition-all font-medium text-slate-900"
+          />
         </div>
+
+        <div className="relative">
+          <button 
+            onClick={() => setIsFilterOpen(!isFilterOpen)}
+            className={`flex items-center gap-3 px-6 py-4 rounded-[24px] border border-slate-200 bg-white font-bold text-slate-700 transition-all ${selectedClass ? 'border-brand-orange bg-orange-50 text-brand-orange' : 'hover:bg-slate-50'}`}
+          >
+            <Filter size={18} />
+            <span>{selectedClass ? `Class ${selectedClass}` : 'Filter Class'}</span>
+            <ChevronDown size={16} className={`transition-transform duration-300 ${isFilterOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          <AnimatePresence>
+            {isFilterOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setIsFilterOpen(false)} />
+                <motion.div 
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-[24px] shadow-2xl p-2 z-20 space-y-1"
+                >
+                  <button 
+                    onClick={() => { setSelectedClass(''); setIsFilterOpen(false); }}
+                    className={`w-full p-3 text-left rounded-xl transition-colors font-bold text-sm ${!selectedClass ? 'bg-slate-900 text-white' : 'hover:bg-slate-50 text-slate-600'}`}
+                  >
+                    All Classes
+                  </button>
+                  <div className="h-px bg-slate-100 my-1 mx-2" />
+                  {classes.map(c => (
+                    <button 
+                      key={c}
+                      onClick={() => { setSelectedClass(c); setIsFilterOpen(false); }}
+                      className={`w-full p-3 text-left rounded-xl transition-colors font-bold text-sm ${selectedClass === c ? 'bg-brand-orange text-white' : 'hover:bg-slate-50 text-slate-600'}`}
+                    >
+                      Class {c}
+                    </button>
+                  ))}
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+        </div>
+      </section>
+
+      {/* Registry Grid */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
+           {[...Array(6)].map((_, i) => (
+             <div key={i} className="h-64 bg-white rounded-[40px] border border-slate-100 shadow-sm" />
+           ))}
+        </div>
+      ) : filteredStudents.length === 0 ? (
+        <motion.div 
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          className="bg-white rounded-[40px] p-20 border border-slate-100 border-dashed text-center"
+        >
+          <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center text-slate-300 mx-auto mb-6">
+            <Users size={40} />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">No Students Found</h2>
+          <p className="text-slate-500 max-w-sm mx-auto">We couldn't find any students matching your current filters or search criteria.</p>
+          <button 
+            onClick={() => { setSelectedClass(''); setSearchQuery(''); }}
+            className="mt-8 px-8 py-3 bg-slate-100 hover:bg-slate-200 rounded-full font-bold text-slate-700 transition-colors"
+          >
+            Clear Filters
+          </button>
+        </motion.div>
       ) : (
-        /* Mobile-First Grid: 1 column on phones, 2 on tablets, 3 on desktop */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {students.map((student, i) => (
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-              key={student._id} 
-              className="bg-white border-4 border-brand-black p-6 shadow-solid flex flex-col relative"
-            >
-              {/* Status Badge */}
-              <div className={`absolute -top-4 -right-4 px-3 py-1 font-bold text-xs uppercase border-2 border-brand-black shadow-solid-sm rotate-3 ${student.status === 'approved' ? 'bg-green-400' : student.status === 'pending' ? 'bg-yellow-400' : 'bg-red-400'}`}>
-                {student.status}
-              </div>
-
-              <h3 className="text-2xl font-black uppercase truncate" title={student.name}>{student.name}</h3>
-              <p className="font-bold text-brand-orange mb-4 uppercase text-sm">Class {student.classLevel}</p>
-              
-              <div className="flex items-center gap-2 text-sm font-medium text-brand-black/70 mb-1 truncate">
-                <Mail size={16} className="shrink-0" />
-                <span className="truncate">{student.email}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm font-medium text-brand-black/70 mb-6">
-                <Phone size={16} className="shrink-0" />
-                <span>{student.phone}</span>
-              </div>
-
-              {/* Action Buttons (Only show on Pending tab) */}
-              {activeTab === 'pending' && (
-                <div className="mt-auto grid grid-cols-2 gap-3 pt-4 border-t-2 border-brand-black/10">
-                  <button 
-                    onClick={() => handleAction(student._id, 'approve')}
-                    className="flex items-center justify-center gap-2 bg-green-400 border-2 border-brand-black py-2 font-bold uppercase text-xs shadow-solid-sm hover:-translate-y-1 hover:shadow-solid active:translate-y-0 active:shadow-none transition-all"
-                  >
-                    <CheckCircle size={16} /> Approve
-                  </button>
-                  <button 
-                    onClick={() => handleAction(student._id, 'reject')}
-                    className="flex items-center justify-center gap-2 bg-red-400 border-2 border-brand-black py-2 font-bold uppercase text-xs shadow-solid-sm hover:-translate-y-1 hover:shadow-solid active:translate-y-0 active:shadow-none transition-all"
-                  >
-                    <XCircle size={16} /> Reject
-                  </button>
+          <AnimatePresence mode="popLayout">
+            {filteredStudents.map((student, i) => (
+              <motion.div 
+                layout
+                initial={{ opacity: 0, scale: 0.9 }} 
+                animate={{ opacity: 1, scale: 1 }} 
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ duration: 0.2 }}
+                key={student._id} 
+                className="group bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 flex flex-col relative"
+              >
+                {/* Status Badge */}
+                <div className={`absolute top-6 right-6 inline-flex px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest
+                  ${student.status === 'approved' ? 'bg-emerald-50 text-emerald-600' : 
+                    student.status === 'pending' ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-rose-600'}`}
+                >
+                  {student.status}
                 </div>
-              )}
-            </motion.div>
-          ))}
+
+                <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 mb-6 group-hover:bg-brand-orange group-hover:text-white transition-colors duration-300">
+                  <span className="text-xl font-bold">{student.name?.charAt(0) || '?'}</span>
+                </div>
+
+                <h3 className="text-xl font-bold text-slate-900 mb-1 truncate" title={student?.name || ''}>{student?.name || 'Unknown Student'}</h3>
+                <div className="flex items-center gap-2 mb-6">
+                   <span className="px-2.5 py-1 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg">
+                    Level {student.classLevel}
+                   </span>
+                   {student.status === 'pending' && (
+                     <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-lg">Waiting Approval</span>
+                   )}
+                </div>
+                
+                <div className="space-y-3 mb-8">
+                  <div className="flex items-center gap-3 text-slate-500 group-hover:text-slate-900 transition-colors">
+                    <Mail size={16} className="shrink-0" />
+                    <span className="text-sm font-medium truncate">{student.email}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-slate-500 group-hover:text-slate-900 transition-colors">
+                    <Phone size={16} className="shrink-0" />
+                    <span className="text-sm font-medium">{student.phone}</span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="mt-auto pt-6 border-t border-slate-50 flex items-center gap-2">
+                  {activeTab === 'pending' ? (
+                    <>
+                      <button 
+                        onClick={() => handleAction(student._id, 'approve')}
+                        className="flex-1 flex items-center justify-center gap-2 py-3 bg-slate-900 text-white rounded-2xl font-bold text-xs shadow-lg shadow-slate-200 hover:brightness-110 transition-all"
+                      >
+                        <UserCheck size={14} /> Allow Access
+                      </button>
+                      <button 
+                        onClick={() => handleAction(student._id, 'reject')}
+                        className="p-3 bg-rose-50 text-rose-600 rounded-2xl hover:bg-rose-100 transition-colors"
+                        title="Deny Access"
+                      >
+                        <UserMinus size={20} />
+                      </button>
+                    </>
+                  ) : (
+                    <button 
+                      className="w-full py-3 bg-slate-50 text-slate-400 rounded-2xl font-bold text-xs cursor-default flex items-center justify-center gap-2"
+                    >
+                      <CheckCircle size={14} /> Registered Member
+                    </button>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
       )}
 

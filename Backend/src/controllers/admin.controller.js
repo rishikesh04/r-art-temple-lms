@@ -5,7 +5,14 @@ import User from '../models/user.model.js';
 // @access  Private / Admin Only
 const getAllStudents = async (req, res) => {
   try {
-    const students = await User.find({ role: 'student' })
+    const { classLevel } = req.query;
+    const filter = { role: 'student' };
+    
+    if (classLevel) {
+      filter.classLevel = classLevel;
+    }
+
+    const students = await User.find(filter)
       .select('-password')
       .sort({ createdAt: -1 });
 

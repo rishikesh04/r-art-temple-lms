@@ -8,92 +8,115 @@ import Attempt from '../models/attempt.model.js';
 // @access  Private (Admin Only)
 export const getAdminDashboard = async (req, res) => {
   try {
-    // Defensive role check
     if (req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied. Admin resources only.',
-      });
+      return res.status(403).json({ success: false, message: 'Access denied.' });
     }
 
+    const classes = ['6', '7', '8', '9', '10'];
+    const now = new Date();
+
+    // 1. Parallel counts and basic stats
     const [
       totalStudents,
-      approvedStudents,
       pendingStudents,
-      rejectedStudents,
       totalQuestions,
       totalTests,
-      publishedTests,
-      draftTests,
-      totalAttempts,
+      allClassStats,
+      allPendingStats,
     ] = await Promise.all([
       User.countDocuments({ role: 'student' }),
-      User.countDocuments({ role: 'student', status: 'approved' }),
       User.countDocuments({ role: 'student', status: 'pending' }),
-      User.countDocuments({ role: 'student', status: 'rejected' }),
       Question.countDocuments(),
       Test.countDocuments(),
-      Test.countDocuments({ status: 'published' }),
-      Test.countDocuments({ status: 'draft' }),
-      Attempt.countDocuments(),
+      // Grouped counts for classes
+      User.aggregate([
+        { $match: { role: 'student' } },
+        { $group: { _id: '$classLevel', count: { $sum: 1 } } }
+      ]),
+      User.aggregate([
+        { $match: { role: 'student', status: 'pending' } },
+        { $group: { _id: '$classLevel', count: { $sum: 1 } } }
+      ])
     ]);
 
-    const rawRecentStudents = await User.find({ role: 'student' })
-      .select('name email phone classLevel status createdAt')
-      .sort({ createdAt: -1 })
+    // Format class stats
+    const totalByClass = {};
+    const pendingByClass = {};
+    classes.forEach(c => {
+      totalByClass[c] = allClassStats.find(s => s._id === c)?.count || 0;
+      pendingByClass[c] = allPendingStats.find(s => s._id === c)?.count || 0;
+    });
+
+    // 2. Live Tests (startTime <= now <= endTime)
+    const liveTestsRaw = await Test.find({
+      status: 'published',
+      startTime: { $lte: now },
+      endTime: { $gte: now }
+    }).lean();
+
+    const liveTests = await Promise.all(liveTestsRaw.map(async (test) => {
+      const [submittedCount, eligibleCount] = await Promise.all([
+        Attempt.countDocuments({ test: test._id }),
+        User.countDocuments({ role: 'student', status: 'approved', classLevel: test.classLevel })
+      ]);
+      return {
+        id: test._id,
+        title: test.title,
+        classLevel: test.classLevel,
+        subject: test.subject,
+        endTime: test.endTime,
+        submittedCount,
+        eligibleCount
+      };
+    }));
+
+    // 3. Recent Tests (last 5 published or completed)
+    const recentTests = await Test.find({ status: 'published' })
+      .sort({ startTime: -1 })
       .limit(5)
       .lean();
 
-    const recentStudents = rawRecentStudents.map((student) => ({
-      id: student._id.toString(),
-      name: student.name,
-      email: student.email,
-      phone: student.phone,
-      classLevel: student.classLevel,
-      status: student.status,
-      createdAt: student.createdAt,
-    }));
-
-    const rawRecentAttempts = await Attempt.find()
-      .populate('student', 'name email')
-      .populate('test', 'title')
+    // 4. Recent Students
+    const recentStudents = await User.find({ role: 'student' })
+      .select('name email classLevel status createdAt')
       .sort({ createdAt: -1 })
       .limit(5)
       .lean();
-
-    const recentAttempts = rawRecentAttempts.map((attempt) => ({
-      attemptId: attempt._id.toString(),
-      studentName: attempt.student ? attempt.student.name : 'Deleted Student',
-      studentEmail: attempt.student ? attempt.student.email : 'N/A',
-      testTitle: attempt.test ? attempt.test.title : 'Deleted Test',
-      score: attempt.score,
-      totalQuestions: attempt.totalQuestions,
-      submittedAt: attempt.createdAt,
-    }));
 
     return res.status(200).json({
       success: true,
       data: {
         stats: {
           totalStudents,
-          approvedStudents,
           pendingStudents,
-          rejectedStudents,
           totalQuestions,
           totalTests,
-          publishedTests,
-          draftTests,
-          totalAttempts,
+          totalByClass,
+          pendingByClass
         },
-        recentStudents,
-        recentAttempts,
-      },
+        liveTests,
+        recentTests: recentTests.map(t => ({
+          id: t._id,
+          title: t.title,
+          classLevel: t.classLevel,
+          subject: t.subject,
+          startTime: t.startTime
+        })),
+        recentStudents: recentStudents.map(s => ({
+          id: s._id,
+          name: s.name,
+          email: s.email,
+          classLevel: s.classLevel,
+          status: s.status,
+          createdAt: s.createdAt
+        }))
+      }
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: 'Server error while fetching admin dashboard data.',
-      error: error.message,
+      message: 'Server error while gathering dashboard insights.',
+      error: error.message
     });
   }
 };

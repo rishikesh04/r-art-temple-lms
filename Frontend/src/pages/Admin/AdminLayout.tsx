@@ -1,99 +1,238 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, Database, FileText, Menu, X } from 'lucide-react';
+import { 
+  LayoutDashboard, 
+  Users, 
+  Database, 
+  FileText, 
+  BarChart3, 
+  Menu, 
+  X, 
+  ChevronRight,
+  LogOut,
+  Bell,
+  Settings
+} from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
-import AdminIllustration from '../../assets/Innovation-bro.svg';
+import { useAuth } from '../../context/AuthContext';
 
 export default function AdminLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { user, logout } = useAuth();
   const location = useLocation();
 
-  // Close menu when a link is clicked on mobile
-  const closeMenu = () => setIsMobileMenuOpen(false);
+  const navItems = [
+    { path: '/admin', name: 'Overview', icon: LayoutDashboard, end: true },
+    { path: '/admin/students', name: 'Students', icon: Users },
+    { path: '/admin/tests', name: 'Tests', icon: FileText },
+    { path: '/admin/results', name: 'Results', icon: BarChart3 },
+    { path: '/admin/questions', name: 'Bank', icon: Database },
+  ];
 
-  // The Sidebar Content (reused for mobile and desktop)
-  const SidebarContent = () => (
-    <>
-      <div className="p-6 border-b-4 border-brand-black bg-brand-orange flex justify-between items-center">
-        <h2 className="font-black text-xl tracking-widest uppercase text-brand-black">Command</h2>
-        {/* Mobile Close Button */}
-        <button className="md:hidden" onClick={closeMenu}>
-          <X size={28} className="text-brand-black" />
-        </button>
-      </div>
-      
-      <nav className="flex flex-col p-4 gap-2 flex-1">
-        <NavLink to="/admin" end onClick={closeMenu} className={({ isActive }) => `flex items-center gap-3 px-4 py-3 font-bold uppercase text-sm border-2 transition-all ${isActive ? 'bg-brand-black text-white border-brand-black shadow-solid-sm translate-x-1' : 'bg-white text-brand-black border-transparent hover:border-brand-black'}`}>
-          <LayoutDashboard size={20} /> Overview
-        </NavLink>
-        <NavLink to="/admin/students" onClick={closeMenu} className={({ isActive }) => `flex items-center gap-3 px-4 py-3 font-bold uppercase text-sm border-2 transition-all ${isActive ? 'bg-brand-black text-white border-brand-black shadow-solid-sm translate-x-1' : 'bg-white text-brand-black border-transparent hover:border-brand-black'}`}>
-          <Users size={20} /> Students
-        </NavLink>
-        <NavLink to="/admin/questions" onClick={closeMenu} className={({ isActive }) => `flex items-center gap-3 px-4 py-3 font-bold uppercase text-sm border-2 transition-all ${isActive ? 'bg-brand-black text-white border-brand-black shadow-solid-sm translate-x-1' : 'bg-white text-brand-black border-transparent hover:border-brand-black'}`}>
-          <Database size={20} /> Question Bank
-        </NavLink>
-        <NavLink to="/admin/tests" onClick={closeMenu} className={({ isActive }) => `flex items-center gap-3 px-4 py-3 font-bold uppercase text-sm border-2 transition-all ${isActive ? 'bg-brand-black text-white border-brand-black shadow-solid-sm translate-x-1' : 'bg-white text-brand-black border-transparent hover:border-brand-black'}`}>
-          <FileText size={20} /> Test Manager
-        </NavLink>
-      </nav>
-    </>
-  );
+  const secondaryItems = [
+    { name: 'Notifications', icon: Bell },
+    { name: 'Settings', icon: Settings },
+  ];
 
   return (
-    <div className="flex flex-col md:flex-row min-h-[calc(100vh-80px)] bg-brand-white relative overflow-hidden">
+    <div className="flex flex-col md:flex-row min-h-screen bg-[#F8FAFC]">
       
-      {/* Static illustration accent (no animation) */}
-      <img
-        src={AdminIllustration}
-        alt=""
-        className="pointer-events-none hidden lg:block absolute -right-24 bottom-0 w-[620px] max-w-none opacity-25"
-      />
-
-      {/* --- MOBILE HEADER (Visible only on small screens) --- */}
-      <div className="md:hidden bg-white border-b-4 border-brand-black p-4 flex justify-between items-center z-20 sticky top-0">
-        <h2 className="font-black text-lg tracking-widest uppercase">Admin Panel</h2>
-        <button onClick={() => setIsMobileMenuOpen(true)} className="p-1 border-2 border-brand-black shadow-solid-sm active:translate-y-1 active:shadow-none bg-brand-orange">
-          <Menu size={24} className="text-brand-black" />
-        </button>
-      </div>
-
       {/* --- DESKTOP SIDEBAR --- */}
-      <aside className="hidden md:flex w-64 bg-white border-r-4 border-brand-black flex-col z-20">
-        <SidebarContent />
+      <aside className="hidden md:flex w-72 flex-col fixed inset-y-0 left-0 bg-white border-r border-slate-200 z-30 transition-all duration-300">
+        <div className="p-8 flex items-center gap-3">
+          <div className="w-10 h-10 bg-brand-orange rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-orange-200">
+            R
+          </div>
+          <div className="flex flex-col">
+            <h1 className="font-bold text-slate-900 leading-tight">Admin Portal</h1>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Art Temple LMS</p>
+          </div>
+        </div>
+
+        <nav className="flex-1 px-4 py-4 space-y-1">
+          <p className="px-4 text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4">Core Management</p>
+          {navItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              end={item.end}
+              className={({ isActive }) => `
+                group flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all duration-200
+                ${isActive 
+                  ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' 
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}
+              `}
+            >
+              <div className="flex items-center gap-3">
+                <item.icon size={20} className={location.pathname === item.path ? 'text-brand-orange' : 'group-hover:text-brand-orange transition-colors'} />
+                <span className="font-semibold text-sm">{item.name}</span>
+              </div>
+              {location.pathname === item.path && (
+                <motion.div layoutId="activeNav" className="w-1.5 h-1.5 rounded-full bg-brand-orange" />
+              )}
+            </NavLink>
+          ))}
+
+          <div className="pt-8 opacity-50">
+            <p className="px-4 text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4">System</p>
+            {secondaryItems.map((item) => (
+              <button
+                key={item.name}
+                className="w-full flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-slate-900 transition-colors"
+                disabled
+              >
+                <item.icon size={20} />
+                <span className="font-semibold text-sm">{item.name}</span>
+              </button>
+            ))}
+          </div>
+        </nav>
+
+        <div className="p-4 mt-auto border-t border-slate-100 bg-slate-50/50">
+          <div className="flex items-center gap-3 p-3 mb-3">
+            <div className="w-10 h-10 bg-white border border-slate-200 rounded-full flex items-center justify-center font-bold text-slate-700 shadow-sm">
+              {user?.name?.charAt(0) || 'A'}
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-bold text-slate-900 truncate">{user?.name || 'Administrator'}</span>
+              <span className="text-[10px] font-medium text-slate-500 truncate">System Managed</span>
+            </div>
+          </div>
+          <button 
+            onClick={() => logout()}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold text-sm shadow-sm hover:bg-slate-50 transition-colors"
+          >
+            <LogOut size={16} /> Sign out
+          </button>
+        </div>
       </aside>
 
-      {/* --- MOBILE SLIDE-IN MENU --- */}
+      {/* --- MOBILE CONTENT --- */}
+      <div className="flex-1 md:ml-72 flex flex-col min-h-screen relative">
+        
+        {/* Mobile Header */}
+        <header className="md:hidden sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-100 z-50 transition-all duration-300">
+          <div className="px-6 h-16 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-brand-orange rounded-lg flex items-center justify-center text-white font-bold shadow-md shadow-orange-100">
+                R
+              </div>
+              <span className="font-bold text-slate-900 tracking-tight">Admin Portal</span>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <main className="flex-1 p-6 pb-24 md:p-12 md:pb-12 max-w-7xl mx-auto w-full">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={location.pathname}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Outlet />
+            </motion.div>
+          </AnimatePresence>
+        </main>
+
+        {/* --- MOBILE BOTTOM NAV --- */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-slate-200 px-6 py-3 flex justify-between items-center z-50">
+          {navItems.slice(0, 4).map((item) => {
+            const isActive = location.pathname === item.path || (item.end && location.pathname === '/admin');
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={`flex flex-col items-center gap-1 transition-all duration-300 ${isActive ? 'text-brand-orange' : 'text-slate-400'}`}
+              >
+                <div className={`p-2 rounded-xl transition-all duration-300 ${isActive ? 'bg-orange-50' : ''}`}>
+                  <item.icon size={22} />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-tight">{item.name}</span>
+              </NavLink>
+            );
+          })}
+          
+          {/* Mobile "More" Drawer Button */}
+          <button 
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="flex flex-col items-center gap-1 text-slate-400"
+          >
+            <div className="p-2 rounded-xl">
+              <Menu size={22} />
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-tight">More</span>
+          </button>
+        </nav>
+      </div>
+
+      {/* --- MOBILE "MORE" DRAWER --- */}
       <AnimatePresence>
         {isMobileMenuOpen && (
           <>
-            {/* Dark Overlay */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={closeMenu}
-              className="md:hidden fixed inset-0 bg-brand-black/60 z-40 backdrop-blur-sm"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="md:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60]"
             />
-            {/* Slide-in Sidebar */}
-            <motion.aside
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-              className="md:hidden fixed top-0 left-0 bottom-0 w-3/4 max-w-sm bg-white border-r-4 border-brand-black flex flex-col z-50 shadow-2xl"
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="md:hidden fixed bottom-0 left-0 right-0 bg-white rounded-t-[32px] p-8 z-[70] shadow-2xl"
             >
-              <SidebarContent />
-            </motion.aside>
+              <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-8" />
+              
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold text-slate-900">Manage Platform</h3>
+                  <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 bg-slate-100 rounded-full">
+                    <X size={20} className="text-slate-600" />
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-1 gap-3">
+                  <NavLink
+                    to="/admin/questions"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-white rounded-xl shadow-sm">
+                        <Database size={20} className="text-slate-900" />
+                      </div>
+                      <span className="font-bold text-slate-900">Question Bank</span>
+                    </div>
+                    <ChevronRight size={18} className="text-slate-400" />
+                  </NavLink>
+
+                  <button className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 opacity-50">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-white rounded-xl shadow-sm">
+                        <Settings size={20} className="text-slate-900" />
+                      </div>
+                      <span className="font-bold text-slate-900">Portal Settings</span>
+                    </div>
+                    <ChevronRight size={18} className="text-slate-400" />
+                  </button>
+                </div>
+
+                <button 
+                  onClick={() => logout()}
+                  className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-red-50 text-red-600 font-bold"
+                >
+                  <LogOut size={20} /> Disconnect Account
+                </button>
+              </div>
+            </motion.div>
           </>
         )}
       </AnimatePresence>
-
-      {/* --- MAIN CONTENT AREA --- */}
-      <main className="flex-1 overflow-y-auto relative z-10 p-4 md:p-0">
-        <motion.div key={location.pathname} className="h-full">
-          <Outlet /> 
-        </motion.div>
-      </main>
 
     </div>
   );

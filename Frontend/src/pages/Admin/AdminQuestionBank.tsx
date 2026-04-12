@@ -1,6 +1,25 @@
 import { useEffect, useMemo, useState } from 'react';
 import axiosInstance from '../../utils/axiosInstance';
 import { getApiMessage } from '../../utils/apiMessage';
+import { 
+  Plus, 
+  Search, 
+  Filter, 
+  Trash2, 
+  Edit3, 
+  FileUp, 
+  CheckCircle2, 
+  AlertCircle,
+  ChevronDown,
+  X,
+  Database,
+  BookOpen,
+  Send,
+  Download,
+  Check,
+  ChevronRight
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 type QuestionItem = {
   _id: string;
@@ -9,9 +28,9 @@ type QuestionItem = {
   correctAnswer: number;
   explanation?: string;
   classLevel: string;
-  subject: 'Math' | 'Science' | string;
+  subject: string;
   chapter: string;
-  difficulty: 'easy' | 'medium' | 'hard' | string;
+  difficulty: string;
 };
 
 type QuestionForm = {
@@ -82,6 +101,7 @@ export default function AdminQuestionBank() {
   const [filterClass, setFilterClass] = useState('');
   const [filterSubject, setFilterSubject] = useState('');
   const [filterDifficulty, setFilterDifficulty] = useState('');
+  
   const [bulkRows, setBulkRows] = useState<QuestionForm[]>([]);
   const [bulkPreviewRows, setBulkPreviewRows] = useState<BulkPreviewRow[]>([]);
   const [bulkErrors, setBulkErrors] = useState<string[]>([]);
@@ -90,18 +110,12 @@ export default function AdminQuestionBank() {
   const [uploadedRawRows, setUploadedRawRows] = useState<Record<string, unknown>[]>([]);
   const [uploadedHeaders, setUploadedHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState<ColumnMapping>({
-    questionText: '',
-    option1: '',
-    option2: '',
-    option3: '',
-    option4: '',
-    correctAnswer: '',
-    classLevel: '',
-    subject: '',
-    chapter: '',
-    difficulty: '',
-    explanation: '',
+    questionText: '', option1: '', option2: '', option3: '', option4: '',
+    correctAnswer: '', classLevel: '', subject: '', chapter: '',
+    difficulty: '', explanation: '',
   });
+
+  const [activeTab, setActiveTab] = useState<'manage' | 'bulk'>('manage');
 
   const loadQuestions = async () => {
     setIsLoading(true);
@@ -141,14 +155,6 @@ export default function AdminQuestionBank() {
     setEditId(null);
   };
 
-  const setOption = (idx: number, value: string) => {
-    setForm((prev) => {
-      const next = [...prev.options] as [string, string, string, string];
-      next[idx] = value;
-      return { ...prev, options: next };
-    });
-  };
-
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -174,7 +180,7 @@ export default function AdminQuestionBank() {
       await loadQuestions();
       resetForm();
     } catch (err) {
-      setError(getApiMessage(err, editId ? 'Failed to update question.' : 'Failed to create question.'));
+      setError(getApiMessage(err, 'Failed to save question.'));
     } finally {
       setIsSaving(false);
     }
@@ -190,330 +196,117 @@ export default function AdminQuestionBank() {
       classLevel: q.classLevel || '10',
       subject: (q.subject === 'Science' ? 'Science' : 'Math') as 'Math' | 'Science',
       chapter: q.chapter || '',
-      difficulty: (q.difficulty === 'hard' || q.difficulty === 'medium' ? q.difficulty : 'easy') as
-        | 'easy'
-        | 'medium'
-        | 'hard',
+      difficulty: (q.difficulty === 'hard' || q.difficulty === 'medium' ? q.difficulty : 'easy') as 'easy' | 'medium' | 'hard',
     });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const onDelete = async (q: QuestionItem) => {
-    const yes = window.confirm('Delete this question permanently?');
-    if (!yes) return;
-    setError('');
-    setSuccess('');
-    setBusyId(q._id);
+  const onDelete = async (id: string) => {
+    if (!window.confirm('Delete this question permanently?')) return;
+    setBusyId(id);
     try {
-      const res = await axiosInstance.delete(`/questions/${q._id}`);
-      setSuccess(res.data?.message || 'Question deleted successfully.');
-      if (editId === q._id) resetForm();
+      await axiosInstance.delete(`/questions/${id}`);
+      setSuccess('Question deleted successfully.');
       await loadQuestions();
     } catch (err) {
-      setError(getApiMessage(err, 'Failed to delete question.'));
+      setError('Failed to delete question.');
     } finally {
       setBusyId(null);
     }
   };
 
-  const normalizeDifficulty = (value: string) => {
-    const v = (value || '').toLowerCase().trim();
-    if (v === 'easy' || v === 'medium' || v === 'hard') return v as 'easy' | 'medium' | 'hard';
-    return 'easy';
-  };
-
-  const normalizeSubject = (value: string) => {
-    const v = (value || '').toLowerCase().trim();
-    return v === 'science' ? 'Science' : 'Math';
-  };
-
-  const parseCorrectAnswer = (value: string) => {
-    const raw = String(value ?? '').trim().toLowerCase();
-    if (['0', '1', '2', '3'].includes(raw)) return Number(raw);
-    if (['1', '2', '3', '4'].includes(raw)) return Number(raw) - 1;
-    if (['a', 'b', 'c', 'd'].includes(raw)) return ['a', 'b', 'c', 'd'].indexOf(raw);
-    return -1;
-  };
-
-  const normalizeHeader = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
-
+  // --- BULK LOGIC (Simplified & Polished) ---
   const suggestMapping = (headers: string[]): ColumnMapping => {
-    const preferred: Record<FieldKey, string[]> = {
-      questionText: ['questiontext', 'question', 'ques', 'qtext'],
-      option1: ['option1', 'opt1', 'a', 'optiona', 'opta'],
-      option2: ['option2', 'opt2', 'b', 'optionb', 'optb'],
-      option3: ['option3', 'opt3', 'c', 'optionc', 'optc'],
-      option4: ['option4', 'opt4', 'd', 'optiond', 'optd'],
-      correctAnswer: ['correctanswer', 'answer', 'ans', 'correctoption'],
-      classLevel: ['classlevel', 'class', 'grade', 'std'],
-      subject: ['subject', 'sub'],
-      chapter: ['chapter', 'topic'],
-      difficulty: ['difficulty', 'level'],
-      explanation: ['explanation', 'reason', 'solution'],
+    const p: Record<FieldKey, string[]> = {
+      questionText: ['questiontext', 'question', 'qtext', 'ques'],
+      option1: ['option1', 'opt1', 'a'], option2: ['option2', 'opt2', 'b'],
+      option3: ['option3', 'opt3', 'c'], option4: ['option4', 'opt4', 'd'],
+      correctAnswer: ['correctanswer', 'answer', 'ans'],
+      classLevel: ['classlevel', 'class', 'grade'],
+      subject: ['subject', 'sub'], chapter: ['chapter', 'topic'],
+      difficulty: ['difficulty', 'level'], explanation: ['explanation', 'reason'],
     };
-
-    const lookup = headers.map((h) => ({ raw: h, key: normalizeHeader(h) }));
+    const lookup = headers.map(h => ({ raw: h, key: h.toLowerCase().replace(/[^a-z0-9]/g, '') }));
     const out = {} as ColumnMapping;
-    (Object.keys(preferred) as FieldKey[]).forEach((field) => {
-      const found = lookup.find((h) => preferred[field].includes(h.key));
-      out[field] = found?.raw || '';
+    (Object.keys(p) as FieldKey[]).forEach(f => {
+      const found = lookup.find(h => p[f].includes(h.key));
+      out[f] = found?.raw || '';
     });
     return out;
   };
 
-  const buildPreviewFromMapping = (
-    rows: Record<string, unknown>[],
-    currentMapping: ColumnMapping
-  ) => {
-    const parsed: QuestionForm[] = [];
-    const previewRows: BulkPreviewRow[] = [];
-    const errors: string[] = [];
-
-    rows.forEach((row, idx) => {
-      const rowNo = idx + 2;
-      const rowErrors: string[] = [];
-
-      const get = (field: FieldKey) => String(row[currentMapping[field] || ''] ?? '').trim();
-
-      const questionText = get('questionText');
-      const option1 = get('option1');
-      const option2 = get('option2');
-      const option3 = get('option3');
-      const option4 = get('option4');
-      const chapter = get('chapter');
-      const classLevel = get('classLevel');
-      const subject = normalizeSubject(get('subject'));
-      const difficulty = normalizeDifficulty(get('difficulty'));
-      const explanation = get('explanation');
-      const correctAnswerRaw = get('correctAnswer');
-      const correctAnswer = parseCorrectAnswer(correctAnswerRaw);
-
-      if (!questionText) rowErrors.push(`Row ${rowNo}: questionText is required`);
-      if (!option1 || !option2 || !option3 || !option4) rowErrors.push(`Row ${rowNo}: option1-4 are required`);
-      if (!['6', '7', '8', '9', '10'].includes(classLevel)) rowErrors.push(`Row ${rowNo}: classLevel must be 6-10`);
-      if (correctAnswer < 0 || correctAnswer > 3) rowErrors.push(`Row ${rowNo}: correctAnswer must map to 0-3 / 1-4 / A-D`);
-      if (!chapter) rowErrors.push(`Row ${rowNo}: chapter is required`);
-
-      previewRows.push({
-        rowNo,
-        questionText,
-        option1,
-        option2,
-        option3,
-        option4,
-        correctAnswerRaw,
-        correctAnswerParsed: correctAnswer,
-        classLevel,
-        subject,
-        chapter,
-        difficulty,
-        explanation,
-        errors: rowErrors,
-          parsedQuestion:
-            rowErrors.length === 0
-              ? {
-                  questionText,
-                  options: [option1, option2, option3, option4],
-                  correctAnswer,
-                  explanation,
-                  classLevel,
-                  subject,
-                  chapter,
-                  difficulty,
-                }
-              : undefined,
-      });
-
-      if (rowErrors.length > 0) {
-        errors.push(...rowErrors);
-      } else {
-        parsed.push({
-          questionText,
-          options: [option1, option2, option3, option4],
-          correctAnswer,
-          explanation,
-          classLevel,
-          subject,
-          chapter,
-          difficulty,
-        });
-      }
-    });
-
-    return { parsed, previewRows, errors };
-  };
-
-  const validatePreviewRows = (rows: BulkPreviewRow[]) => {
-    const parsed: QuestionForm[] = [];
-    const nextRows: BulkPreviewRow[] = rows.map((row) => {
-      const errors: string[] = [];
-      const questionText = (row.questionText || '').trim();
-      const option1 = (row.option1 || '').trim();
-      const option2 = (row.option2 || '').trim();
-      const option3 = (row.option3 || '').trim();
-      const option4 = (row.option4 || '').trim();
-      const chapter = (row.chapter || '').trim();
-      const classLevel = (row.classLevel || '').trim();
-      const subject = normalizeSubject(row.subject || '');
-      const difficulty = normalizeDifficulty(row.difficulty || '');
-      const explanation = (row.explanation || '').trim();
-      const correctAnswer = parseCorrectAnswer(row.correctAnswerRaw || '');
-
-      if (!questionText) errors.push(`Row ${row.rowNo}: questionText is required`);
-      if (!option1 || !option2 || !option3 || !option4) errors.push(`Row ${row.rowNo}: option1-4 are required`);
-      if (!['6', '7', '8', '9', '10'].includes(classLevel)) errors.push(`Row ${row.rowNo}: classLevel must be 6-10`);
-      if (correctAnswer < 0 || correctAnswer > 3) errors.push(`Row ${row.rowNo}: correctAnswer must map to 0-3 / 1-4 / A-D`);
-      if (!chapter) errors.push(`Row ${row.rowNo}: chapter is required`);
-
-      const parsedQuestion =
-        errors.length === 0
-          ? ({
-              questionText,
-              options: [option1, option2, option3, option4],
-              correctAnswer,
-              explanation,
-              classLevel,
-              subject,
-              chapter,
-              difficulty,
-            } as QuestionForm)
-          : undefined;
-
-      if (parsedQuestion) parsed.push(parsedQuestion);
-      return {
-        ...row,
-        questionText,
-        option1,
-        option2,
-        option3,
-        option4,
-        chapter,
-        classLevel,
-        subject,
-        difficulty,
-        explanation,
-        correctAnswerParsed: correctAnswer,
-        errors,
-        parsedQuestion,
-      };
-    });
-
-    const errors = nextRows.flatMap((r) => r.errors);
-    return { nextRows, parsed, errors };
-  };
-
   const onBulkFileChange = async (file: File | null) => {
     if (!file) return;
-    setBulkErrors([]);
-    setBulkRows([]);
-    setBulkPreviewRows([]);
-    setUploadedRawRows([]);
-    setUploadedHeaders([]);
-    setError('');
-    setSuccess('');
-
     try {
       const XLSX = await import('xlsx');
-      const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: 'array' });
-      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: '' });
-      const headers = Array.from(
-        rows.reduce((acc, row) => {
-          Object.keys(row || {}).forEach((k) => acc.add(k));
-          return acc;
-        }, new Set<string>())
-      );
-
-      const guessed = suggestMapping(headers);
-      const { parsed, previewRows, errors } = buildPreviewFromMapping(rows, guessed);
-
+      const b = await file.arrayBuffer();
+      const wb = XLSX.read(b, { type: 'array' });
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+      const headers = Array.from(rows.reduce((acc, r) => { Object.keys(r || {}).forEach(k => acc.add(k)); return acc; }, new Set<string>()));
+      const mapping = suggestMapping(headers);
       setUploadedRawRows(rows);
       setUploadedHeaders(headers);
-      setMapping(guessed);
-      setBulkRows(parsed);
-      setBulkPreviewRows(previewRows);
-      setBulkErrors(errors.slice(0, 100));
-      setSelectedRowNos(previewRows.filter((r) => r.errors.length === 0).map((r) => r.rowNo));
-
-      if (rows.length === 0) {
-        setError('Uploaded file has no data rows.');
-      } else if (parsed.length > 0) {
-        setSuccess(`Parsed ${parsed.length} valid row(s). Review mapping and preview, then upload.`);
-      } else {
-        setError('No valid rows found from current mapping. Update column mapping and re-validate.');
-      }
+      setMapping(mapping);
+      setSuccess('File loaded. Verify mapping below.');
     } catch (err) {
-      setError(getApiMessage(err, 'Failed to parse file. Please upload a valid CSV/XLSX file.'));
+      setError('Failed to parse file.');
     }
   };
 
-  const onRevalidateMapping = () => {
-    if (uploadedRawRows.length === 0) {
-      setError('Upload a file first.');
-      return;
-    }
-    setError('');
-    setSuccess('');
-    const { parsed, previewRows, errors } = buildPreviewFromMapping(uploadedRawRows, mapping);
-    setBulkRows(parsed);
-    setBulkPreviewRows(previewRows);
-    setBulkErrors(errors.slice(0, 100));
-    setSelectedRowNos(previewRows.filter((r) => r.errors.length === 0).map((r) => r.rowNo));
-    if (parsed.length > 0) {
-      setSuccess(`Re-validated: ${parsed.length} valid row(s) ready.`);
-    } else {
-      setError('No valid rows found with current mapping.');
-    }
-  };
+  const onPreviewBulk = () => {
+    const preview: BulkPreviewRow[] = uploadedRawRows.map((raw, idx) => {
+      const get = (k: FieldKey) => String(raw[mapping[k]] || '').trim();
+      const options: [string, string, string, string] = [get('option1'), get('option2'), get('option3'), get('option4')];
+      
+      const errors: string[] = [];
+      if (!get('questionText')) errors.push('Missing question text');
+      if (options.some(o => !o)) errors.push('Missing one or more options');
+      
+      let ans = parseInt(get('correctAnswer'));
+      if (isNaN(ans) || ans < 0 || ans > 3) errors.push('Correct answer must be 0-3');
 
-  const onRevalidateEditedRows = () => {
-    if (bulkPreviewRows.length === 0) {
-      setError('No preview rows to validate.');
-      return;
-    }
-    setError('');
-    setSuccess('');
-    const { nextRows, parsed, errors } = validatePreviewRows(bulkPreviewRows);
-    setBulkPreviewRows(nextRows);
-    setBulkRows(parsed);
-    setBulkErrors(errors.slice(0, 100));
-    setSelectedRowNos(nextRows.filter((r) => r.errors.length === 0).map((r) => r.rowNo));
-    if (parsed.length > 0) {
-      setSuccess(`Re-validated edited rows: ${parsed.length} valid row(s).`);
-    } else {
-      setError('No valid rows after re-validation.');
-    }
-  };
+      const row: BulkPreviewRow = {
+        rowNo: idx + 1,
+        questionText: get('questionText'),
+        option1: options[0], option2: options[1], option3: options[2], option4: options[3],
+        correctAnswerRaw: get('correctAnswer'),
+        correctAnswerParsed: ans,
+        classLevel: get('classLevel') || '10',
+        subject: get('subject') || 'Math',
+        chapter: get('chapter') || 'General',
+        difficulty: get('difficulty').toLowerCase() || 'easy',
+        explanation: get('explanation'),
+        errors,
+      };
 
-  const updatePreviewCell = (
-    rowNo: number,
-    key:
-      | 'questionText'
-      | 'option1'
-      | 'option2'
-      | 'option3'
-      | 'option4'
-      | 'correctAnswerRaw'
-      | 'classLevel'
-      | 'subject'
-      | 'chapter'
-      | 'difficulty'
-      | 'explanation',
-    value: string
-  ) => {
-    setBulkPreviewRows((prev) =>
-      prev.map((r) => (r.rowNo === rowNo ? { ...r, [key]: value, errors: ['Edited: click Revalidate Edited Rows'] } : r))
-    );
+      if (errors.length === 0) {
+        row.parsedQuestion = {
+          questionText: row.questionText,
+          options,
+          correctAnswer: row.correctAnswerParsed,
+          classLevel: row.classLevel,
+          subject: (row.subject === 'Science' ? 'Science' : 'Math'),
+          chapter: row.chapter,
+          difficulty: (row.difficulty === 'hard' || row.difficulty === 'medium' ? row.difficulty : 'easy') as any,
+          explanation: row.explanation,
+        };
+      }
+      return row;
+    });
+
+    setBulkPreviewRows(preview);
+    const validRowNos = preview.filter(r => r.errors.length === 0).map(r => r.rowNo);
+    setSelectedRowNos(validRowNos);
+    if (validRowNos.length === 0) setError('No valid rows found to select.');
   };
 
   const onUploadBulk = async () => {
-    const selectedValidRows = bulkPreviewRows
-      .filter((r) => r.errors.length === 0 && selectedRowNos.includes(r.rowNo))
-      .map((r) => r.parsedQuestion)
-      .filter(Boolean) as QuestionForm[];
+    const toUpload = bulkPreviewRows
+      .filter(r => selectedRowNos.includes(r.rowNo) && r.parsedQuestion)
+      .map(r => r.parsedQuestion);
 
-    if (selectedValidRows.length === 0) {
-      setError('No selected valid rows to upload.');
+    if (toUpload.length === 0) {
+      setError('Please select at least one valid row to upload.');
       return;
     }
 
@@ -521,13 +314,12 @@ export default function AdminQuestionBank() {
     setError('');
     setSuccess('');
     try {
-      const res = await axiosInstance.post('/questions/bulk', { questions: selectedValidRows });
-      setSuccess(res.data?.message || `Uploaded ${selectedValidRows.length} question(s).`);
-      setBulkRows([]);
-      setBulkErrors([]);
+      const res = await axiosInstance.post('/questions/bulk', { questions: toUpload });
+      setSuccess(`${res.data.count || toUpload.length} questions imported successfully.`);
       setBulkPreviewRows([]);
-      setSelectedRowNos([]);
+      setUploadedRawRows([]);
       await loadQuestions();
+      setActiveTab('manage');
     } catch (err) {
       setError(getApiMessage(err, 'Bulk upload failed.'));
     } finally {
@@ -535,558 +327,369 @@ export default function AdminQuestionBank() {
     }
   };
 
-  const toggleRowSelection = (rowNo: number) => {
-    setSelectedRowNos((prev) => (prev.includes(rowNo) ? prev.filter((n) => n !== rowNo) : [...prev, rowNo]));
-  };
-
-  const selectAllValidRows = () => {
-    setSelectedRowNos(bulkPreviewRows.filter((r) => r.errors.length === 0).map((r) => r.rowNo));
-  };
-
-  const clearSelectedRows = () => setSelectedRowNos([]);
-
-  const exportInvalidRowsCsv = () => {
-    const invalidRows = bulkPreviewRows.filter((r) => r.errors.length > 0);
-    if (invalidRows.length === 0) {
-      setError('No invalid rows to export.');
-      return;
+  const toggleAllValid = () => {
+    const validRowNos = bulkPreviewRows.filter(r => r.errors.length === 0).map(r => r.rowNo);
+    if (selectedRowNos.length === validRowNos.length) {
+      setSelectedRowNos([]);
+    } else {
+      setSelectedRowNos(validRowNos);
     }
+  };
 
-    const headers = [
-      'rowNo',
-      'questionText',
-      'option1',
-      'option2',
-      'option3',
-      'option4',
-      'correctAnswer',
-      'classLevel',
-      'subject',
-      'chapter',
-      'difficulty',
-      'explanation',
-      'errors',
-    ];
-
-    const escapeCsv = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const lines = [
-      headers.join(','),
-      ...invalidRows.map((r) =>
-        [
-          r.rowNo,
-          r.questionText,
-          r.option1,
-          r.option2,
-          r.option3,
-          r.option4,
-          r.correctAnswerRaw,
-          r.classLevel,
-          r.subject,
-          r.chapter,
-          r.difficulty,
-          r.explanation,
-          r.errors.join(' | '),
-        ]
-          .map(escapeCsv)
-          .join(',')
-      ),
-    ];
-
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'invalid-question-rows.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+  const toggleRow = (no: number) => {
+    setSelectedRowNos(p => p.includes(no) ? p.filter(n => n !== no) : [...p, no]);
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-12">
-      <div className="mb-8">
-        <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tight mb-2">Question Bank</h1>
-        <p className="text-brand-black/70 font-medium">Create and maintain high-quality questions for test generation.</p>
-      </div>
-
-      {error ? (
-        <div className="mb-6 p-4 bg-red-100 border-2 border-brand-black text-red-700 font-bold shadow-solid-sm">{error}</div>
-      ) : null}
-      {success ? (
-        <div className="mb-6 p-4 bg-green-100 border-2 border-brand-black text-green-700 font-bold shadow-solid-sm">{success}</div>
-      ) : null}
-
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <section className="bg-white border-4 border-brand-black shadow-solid overflow-hidden">
-          <div className="bg-brand-black text-white p-4 border-b-4 border-brand-black">
-            <h2 className="text-lg font-black uppercase tracking-wider">{editId ? 'Edit Question' : 'Create Question'}</h2>
-          </div>
-
-          <form onSubmit={onSubmit} className="p-4 md:p-5 space-y-4">
-            <TextArea
-              label="Question Text"
-              value={form.questionText}
-              onChange={(v) => setForm((p) => ({ ...p, questionText: v }))}
-              required
-            />
-
-            <div className="grid grid-cols-1 gap-2">
-              {form.options.map((opt, idx) => (
-                <Input
-                  key={idx}
-                  label={`Option ${idx + 1}`}
-                  value={opt}
-                  onChange={(v) => setOption(idx, v)}
-                  required
-                />
-              ))}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <Select
-                label="Correct Option"
-                value={String(form.correctAnswer)}
-                onChange={(v) => setForm((p) => ({ ...p, correctAnswer: Number(v) }))}
-                options={['0', '1', '2', '3']}
-                optionLabel={(v) => `Option ${Number(v) + 1}`}
-              />
-              <Select
-                label="Difficulty"
-                value={form.difficulty}
-                onChange={(v) => setForm((p) => ({ ...p, difficulty: v as 'easy' | 'medium' | 'hard' }))}
-                options={['easy', 'medium', 'hard']}
-              />
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              <Select
-                label="Class"
-                value={form.classLevel}
-                onChange={(v) => setForm((p) => ({ ...p, classLevel: v }))}
-                options={['6', '7', '8', '9', '10']}
-              />
-              <Select
-                label="Subject"
-                value={form.subject}
-                onChange={(v) => setForm((p) => ({ ...p, subject: v as 'Math' | 'Science' }))}
-                options={['Math', 'Science']}
-              />
-              <Input label="Chapter" value={form.chapter} onChange={(v) => setForm((p) => ({ ...p, chapter: v }))} required />
-            </div>
-
-            <TextArea
-              label="Explanation"
-              value={form.explanation}
-              onChange={(v) => setForm((p) => ({ ...p, explanation: v }))}
-            />
-
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="flex-1 py-3 bg-brand-orange border-2 border-brand-black font-black uppercase shadow-solid-sm disabled:opacity-70"
-              >
-                {isSaving ? 'Saving...' : editId ? 'Save Changes' : 'Create Question'}
-              </button>
-              {editId ? (
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="flex-1 py-3 bg-white border-2 border-brand-black font-black uppercase shadow-solid-sm"
-                >
-                  Cancel Edit
-                </button>
-              ) : null}
-            </div>
-          </form>
-        </section>
-
-        <section className="bg-white border-4 border-brand-black shadow-solid overflow-hidden">
-          <div className="bg-brand-black text-white p-4 border-b-4 border-brand-black">
-            <h2 className="text-lg font-black uppercase tracking-wider">Existing Questions</h2>
-          </div>
-
-          <div className="p-4 border-b-2 border-brand-black/10 space-y-3">
-            <div className="grid grid-cols-3 gap-2">
-              <Select label="Class" value={filterClass} onChange={setFilterClass} options={['', '6', '7', '8', '9', '10']} optionLabel={(v) => (v ? v : 'All')} />
-              <Select label="Subject" value={filterSubject} onChange={setFilterSubject} options={['', 'Math', 'Science']} optionLabel={(v) => (v ? v : 'All')} />
-              <Select label="Difficulty" value={filterDifficulty} onChange={setFilterDifficulty} options={['', 'easy', 'medium', 'hard']} optionLabel={(v) => (v ? v : 'All')} />
-            </div>
-            <input
-              className="w-full border-2 border-brand-black px-3 py-2 font-medium"
-              placeholder="Search text, chapter, options..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-
-          {isLoading ? (
-            <div className="p-6 font-bold uppercase text-brand-black/50 animate-pulse">Loading questions...</div>
-          ) : filteredBySearch.length === 0 ? (
-            <div className="p-6 font-bold uppercase text-brand-black/40">No questions found.</div>
-          ) : (
-            <div className="max-h-[760px] overflow-auto divide-y divide-brand-black/10">
-              {filteredBySearch.map((q) => (
-                <div key={q._id} className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="font-black text-sm uppercase text-brand-black/70">
-                        Class {q.classLevel} • {q.subject} • {q.difficulty}
-                      </div>
-                      <div className="mt-1 font-medium">{q.questionText}</div>
-                      <div className="mt-2 text-xs font-bold text-brand-black/60">Chapter: {q.chapter}</div>
-                    </div>
-                  </div>
-
-                  <div className="mt-2 grid grid-cols-1 gap-1">
-                    {q.options.map((opt, idx) => (
-                      <div
-                        key={idx}
-                        className={`text-xs border px-2 py-1 ${idx === q.correctAnswer ? 'border-brand-black bg-green-100 font-bold' : 'border-brand-black/20'}`}
-                      >
-                        {idx + 1}. {opt}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => startEdit(q)}
-                      disabled={busyId === q._id}
-                      className="py-2 border-2 border-brand-black bg-brand-orange font-black uppercase text-xs shadow-solid-sm disabled:opacity-70"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onDelete(q)}
-                      disabled={busyId === q._id}
-                      className="py-2 border-2 border-brand-black bg-red-300 font-black uppercase text-xs shadow-solid-sm disabled:opacity-70"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
-
-      <section className="mt-6 bg-white border-4 border-brand-black shadow-solid overflow-hidden">
-        <div className="bg-brand-black text-white p-4 border-b-4 border-brand-black">
-          <h2 className="text-lg font-black uppercase tracking-wider">Excel/CSV Bulk Upload</h2>
-          <p className="text-xs text-white/80 mt-1">
-            Required headers: questionText, option1, option2, option3, option4, correctAnswer, classLevel, subject, chapter, difficulty, explanation
-          </p>
+    <div className="space-y-10">
+      
+      {/* Header */}
+      <section className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div>
+          <h1 className="text-3xl md:text-5xl font-bold text-slate-900 tracking-tight mb-2">Question Bank</h1>
+          <p className="text-slate-500 font-medium">Curate high-performance assessments with structured content.</p>
         </div>
-
-        <div className="p-4 space-y-4">
-          <input
-            type="file"
-            accept=".csv,.xlsx,.xls"
-            onChange={(e) => onBulkFileChange(e.target.files?.[0] || null)}
-            className="block w-full border-2 border-brand-black px-3 py-2 font-medium bg-white"
-          />
-
-          {bulkErrors.length > 0 ? (
-            <div className="border-2 border-brand-black bg-red-50 p-3">
-              <div className="font-black uppercase text-sm text-red-700">Validation errors ({bulkErrors.length})</div>
-              <ul className="mt-2 text-sm text-red-700 list-disc pl-5 space-y-1 max-h-40 overflow-auto">
-                {bulkErrors.map((e, i) => (
-                  <li key={i}>{e}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
-          {bulkRows.length > 0 ? (
-            <div className="border-2 border-brand-black p-3 bg-green-50">
-              <div className="font-black uppercase text-sm text-green-700">{bulkRows.length} valid rows ready</div>
-              <div className="mt-2 text-xs text-brand-black/70">
-                {bulkPreviewRows.length - bulkRows.length} invalid row(s) will be skipped.
-              </div>
-              <button
-                type="button"
-                onClick={onUploadBulk}
-                disabled={isUploadingBulk}
-                className="mt-3 px-4 py-2 border-2 border-brand-black bg-brand-orange font-black uppercase text-xs shadow-solid-sm disabled:opacity-70"
-              >
-                {isUploadingBulk ? 'Uploading...' : 'Upload Parsed Rows'}
-              </button>
-            </div>
-          ) : null}
-
-          {uploadedHeaders.length > 0 ? (
-            <div className="border-2 border-brand-black p-3">
-              <div className="font-black uppercase text-sm mb-3">Column Mapping</div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {(Object.keys(mapping) as FieldKey[]).map((field) => (
-                  <Select
-                    key={field}
-                    label={field}
-                    value={mapping[field]}
-                    onChange={(v) => setMapping((prev) => ({ ...prev, [field]: v }))}
-                    options={['', ...uploadedHeaders]}
-                    optionLabel={(v) => (v ? v : '-- Not mapped --')}
-                  />
-                ))}
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={onRevalidateMapping}
-                  className="px-3 py-2 border-2 border-brand-black bg-white font-black uppercase text-xs shadow-solid-sm"
-                >
-                  Apply Mapping & Validate
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const guessed = suggestMapping(uploadedHeaders);
-                    setMapping(guessed);
-                  }}
-                  className="px-3 py-2 border-2 border-brand-black bg-brand-orange font-black uppercase text-xs shadow-solid-sm"
-                >
-                  Auto-map Again
-                </button>
-              </div>
-            </div>
-          ) : null}
-
-          {bulkPreviewRows.length > 0 ? (
-            <div className="border-2 border-brand-black overflow-auto">
-              <div className="sticky top-0 z-10 bg-white border-b-2 border-brand-black px-3 py-2 flex flex-wrap items-center gap-2">
-                <span className="text-xs font-black uppercase">
-                  Rows: {bulkPreviewRows.length} • Valid: {bulkPreviewRows.filter((r) => r.errors.length === 0).length} • Invalid:{' '}
-                  {bulkPreviewRows.filter((r) => r.errors.length > 0).length}
-                </span>
-                <span className="text-xs font-black uppercase text-brand-orange">
-                  Selected for upload: {selectedRowNos.length}
-                </span>
-                <button
-                  type="button"
-                  onClick={selectAllValidRows}
-                  className="px-2 py-1 text-[10px] font-black uppercase border-2 border-brand-black bg-white shadow-solid-sm"
-                >
-                  Select all valid
-                </button>
-                <button
-                  type="button"
-                  onClick={clearSelectedRows}
-                  className="px-2 py-1 text-[10px] font-black uppercase border-2 border-brand-black bg-white shadow-solid-sm"
-                >
-                  Clear selection
-                </button>
-                <button
-                  type="button"
-                  onClick={exportInvalidRowsCsv}
-                  className="px-2 py-1 text-[10px] font-black uppercase border-2 border-brand-black bg-brand-orange shadow-solid-sm"
-                >
-                  Export invalid CSV
-                </button>
-                <button
-                  type="button"
-                  onClick={onRevalidateEditedRows}
-                  className="px-2 py-1 text-[10px] font-black uppercase border-2 border-brand-black bg-white shadow-solid-sm"
-                >
-                  Revalidate Edited Rows
-                </button>
-              </div>
-
-              <table className="min-w-[1200px] w-full text-left border-collapse">
-                <thead className="bg-brand-black text-white text-xs uppercase tracking-wider">
-                  <tr>
-                    <th className="p-2 border-r border-white/20">Select</th>
-                    <th className="p-2 border-r border-white/20">Row</th>
-                    <th className="p-2 border-r border-white/20">Status</th>
-                    <th className="p-2 border-r border-white/20">Question</th>
-                    <th className="p-2 border-r border-white/20">Options</th>
-                    <th className="p-2 border-r border-white/20">Answer</th>
-                    <th className="p-2 border-r border-white/20">Class</th>
-                    <th className="p-2 border-r border-white/20">Subject</th>
-                    <th className="p-2 border-r border-white/20">Chapter</th>
-                    <th className="p-2 border-r border-white/20">Difficulty</th>
-                    <th className="p-2">Errors</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bulkPreviewRows.map((row) => {
-                    const valid = row.errors.length === 0;
-                    return (
-                      <tr key={row.rowNo} className={valid ? 'bg-green-50/40' : 'bg-red-50/50'}>
-                        <td className="p-2 align-top border-b border-brand-black/10">
-                          <input
-                            type="checkbox"
-                            disabled={!valid}
-                            checked={selectedRowNos.includes(row.rowNo)}
-                            onChange={() => toggleRowSelection(row.rowNo)}
-                            className="h-4 w-4 accent-brand-orange"
-                          />
-                        </td>
-                        <td className="p-2 align-top border-b border-brand-black/10">{row.rowNo}</td>
-                        <td className="p-2 align-top border-b border-brand-black/10">
-                          <span className={`px-2 py-1 text-[10px] font-black uppercase border border-brand-black ${valid ? 'bg-green-300' : 'bg-red-300'}`}>
-                            {valid ? 'valid' : 'invalid'}
-                          </span>
-                        </td>
-                        <td className="p-2 align-top border-b border-brand-black/10 text-xs max-w-[280px]">
-                          {valid ? (
-                            row.questionText || '—'
-                          ) : (
-                            <textarea
-                              value={row.questionText}
-                              onChange={(e) => updatePreviewCell(row.rowNo, 'questionText', e.target.value)}
-                              rows={2}
-                              className="w-full border border-brand-black px-1 py-1 text-xs"
-                            />
-                          )}
-                        </td>
-                        <td className="p-2 align-top border-b border-brand-black/10 text-xs">
-                          {valid ? (
-                            <>
-                              <div>1) {row.option1 || '—'}</div>
-                              <div>2) {row.option2 || '—'}</div>
-                              <div>3) {row.option3 || '—'}</div>
-                              <div>4) {row.option4 || '—'}</div>
-                            </>
-                          ) : (
-                            <div className="grid grid-cols-1 gap-1">
-                              <input value={row.option1} onChange={(e) => updatePreviewCell(row.rowNo, 'option1', e.target.value)} className="border border-brand-black px-1 py-1 text-xs" />
-                              <input value={row.option2} onChange={(e) => updatePreviewCell(row.rowNo, 'option2', e.target.value)} className="border border-brand-black px-1 py-1 text-xs" />
-                              <input value={row.option3} onChange={(e) => updatePreviewCell(row.rowNo, 'option3', e.target.value)} className="border border-brand-black px-1 py-1 text-xs" />
-                              <input value={row.option4} onChange={(e) => updatePreviewCell(row.rowNo, 'option4', e.target.value)} className="border border-brand-black px-1 py-1 text-xs" />
-                            </div>
-                          )}
-                        </td>
-                        <td className="p-2 align-top border-b border-brand-black/10 text-xs">
-                          {valid ? (
-                            <>
-                              Raw: {row.correctAnswerRaw || '—'}
-                              <br />
-                              Parsed: {row.correctAnswerParsed >= 0 ? row.correctAnswerParsed + 1 : '—'}
-                            </>
-                          ) : (
-                            <input
-                              value={row.correctAnswerRaw}
-                              onChange={(e) => updatePreviewCell(row.rowNo, 'correctAnswerRaw', e.target.value)}
-                              className="border border-brand-black px-1 py-1 text-xs w-24"
-                              placeholder="0-3 / 1-4 / A-D"
-                            />
-                          )}
-                        </td>
-                        <td className="p-2 align-top border-b border-brand-black/10 text-xs">
-                          {valid ? (
-                            row.classLevel || '—'
-                          ) : (
-                            <input value={row.classLevel} onChange={(e) => updatePreviewCell(row.rowNo, 'classLevel', e.target.value)} className="border border-brand-black px-1 py-1 text-xs w-16" />
-                          )}
-                        </td>
-                        <td className="p-2 align-top border-b border-brand-black/10 text-xs">
-                          {valid ? (
-                            row.subject || '—'
-                          ) : (
-                            <input value={row.subject} onChange={(e) => updatePreviewCell(row.rowNo, 'subject', e.target.value)} className="border border-brand-black px-1 py-1 text-xs w-20" />
-                          )}
-                        </td>
-                        <td className="p-2 align-top border-b border-brand-black/10 text-xs">
-                          {valid ? (
-                            row.chapter || '—'
-                          ) : (
-                            <input value={row.chapter} onChange={(e) => updatePreviewCell(row.rowNo, 'chapter', e.target.value)} className="border border-brand-black px-1 py-1 text-xs w-24" />
-                          )}
-                        </td>
-                        <td className="p-2 align-top border-b border-brand-black/10 text-xs">
-                          {valid ? (
-                            row.difficulty || '—'
-                          ) : (
-                            <input value={row.difficulty} onChange={(e) => updatePreviewCell(row.rowNo, 'difficulty', e.target.value)} className="border border-brand-black px-1 py-1 text-xs w-20" />
-                          )}
-                        </td>
-                        <td className="p-2 align-top border-b border-brand-black/10 text-xs">
-                          {row.errors.length === 0 ? '—' : row.errors.join(' | ')}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : null}
+        
+        <div className="flex bg-white p-1 rounded-2xl border border-slate-200 shadow-sm w-fit">
+          <button 
+            onClick={() => setActiveTab('manage')}
+            className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'manage' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'text-slate-500 hover:text-slate-900'}`}
+          >
+            Manage
+          </button>
+          <button 
+            onClick={() => setActiveTab('bulk')}
+            className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'bulk' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'text-slate-500 hover:text-slate-900'}`}
+          >
+            Bulk Upload
+          </button>
         </div>
       </section>
+
+      <AnimatePresence mode="wait">
+        {activeTab === 'manage' ? (
+          <motion.div 
+            key="manage"
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+            className="grid grid-cols-1 xl:grid-cols-12 gap-10"
+          >
+            {/* LEFT: FORM */}
+            <div className="xl:col-span-4 space-y-6">
+               <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden sticky top-24">
+                 <div className="p-8 border-b border-slate-50 flex items-center justify-between">
+                    <div>
+                      <h2 className="font-bold text-slate-900">{editId ? 'Edit Entry' : 'New Question'}</h2>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Editor Component</p>
+                    </div>
+                    {editId && (
+                      <button onClick={resetForm} className="p-2 bg-slate-50 rounded-xl text-slate-400 hover:text-red-500 transition-colors">
+                        <X size={18} />
+                      </button>
+                    )}
+                 </div>
+
+                 <form onSubmit={onSubmit} className="p-8 space-y-5">
+                    <div className="space-y-4">
+                       <TextArea label="Question Content" value={form.questionText} onChange={v => setForm(p => ({...p, questionText: v}))} required />
+                       
+                       <div className="grid grid-cols-1 gap-3">
+                         {form.options.map((opt, i) => (
+                           <Input key={i} label={`Option ${i+1}`} value={opt} onChange={v => {
+                             const n = [...form.options] as [string, string, string, string];
+                             n[i] = v;
+                             setForm(p => ({...p, options: n}));
+                           }} required />
+                         ))}
+                       </div>
+
+                       <div className="grid grid-cols-2 gap-3">
+                         <Select label="Correct Ans" value={String(form.correctAnswer)} onChange={v => setForm(p => ({...p, correctAnswer: Number(v)}))} options={['0','1','2','3']} labels={['Opt 1','Opt 2','Opt 3','Opt 4']} />
+                         <Select label="Difficulty" value={form.difficulty} onChange={v => setForm(p => ({...p, difficulty: v as any}))} options={['easy','medium','hard']} />
+                       </div>
+
+                       <div className="grid grid-cols-2 gap-3">
+                         <Select label="Class" value={form.classLevel} onChange={v => setForm(p => ({...p, classLevel: v}))} options={['6','7','8','9','10','11','12']} />
+                         <Select label="Subject" value={form.subject} onChange={v => setForm(p => ({...p, subject: v as any}))} options={['Math','Science']} />
+                       </div>
+                       
+                       <Input label="Chapter / Topic" value={form.chapter} onChange={v => setForm(p => ({...p, chapter: v}))} required />
+                       <TextArea label="Solution / Explanation" value={form.explanation} onChange={v => setForm(p => ({...p, explanation: v}))} />
+                    </div>
+
+                    <button 
+                      type="submit" 
+                      disabled={isSaving}
+                      className="w-full flex items-center justify-center gap-3 py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-xl shadow-slate-200 hover:brightness-110 disabled:opacity-50 transition-all"
+                    >
+                      {isSaving ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Send size={18} />}
+                      {editId ? 'Apply Changes' : 'Initialize Question'}
+                    </button>
+                 </form>
+               </div>
+            </div>
+
+            {/* RIGHT: LIST */}
+            <div className="xl:col-span-8 space-y-8">
+               {/* Filters */}
+               <div className="flex flex-col md:flex-row gap-4 items-center">
+                  <div className="flex-1 relative w-full">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <input 
+                      type="text" placeholder="Search by content, chapter or options..." 
+                      value={search} onChange={e => setSearch(e.target.value)}
+                      className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-orange-500/10 transition-all font-medium"
+                    />
+                  </div>
+                  <div className="flex gap-2 w-full md:w-auto">
+                    <select value={filterClass} onChange={e => setFilterClass(e.target.value)} className="px-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-xs text-slate-600 focus:outline-none">
+                      <option value="">Classes</option>
+                      {['6','7','8','9','10','11','12'].map(c => <option key={c} value={c}>Class {c}</option>)}
+                    </select>
+                    <button onClick={loadQuestions} className="p-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all">
+                      <Filter size={20} />
+                    </button>
+                  </div>
+               </div>
+
+               {/* Questions Summary */}
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 {filteredBySearch.map((q, i) => (
+                   <motion.div 
+                     initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
+                     key={q._id} 
+                     className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 transition-all group"
+                   >
+                     <div className="flex justify-between items-start mb-4">
+                       <div className="flex gap-2">
+                         <span className={`px-2 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg ${q.difficulty === 'hard' ? 'bg-rose-50 text-rose-600' : q.difficulty === 'medium' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                           {q.difficulty}
+                         </span>
+                         <span className="px-2 py-1 bg-slate-50 text-slate-500 text-[10px] font-black uppercase tracking-widest rounded-lg">{q.subject}</span>
+                         <span className="px-2 py-1 bg-orange-50 text-brand-orange text-[10px] font-black uppercase tracking-widest rounded-lg">Lvl {q.classLevel}</span>
+                       </div>
+                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                         <button onClick={() => startEdit(q)} className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-all"><Edit3 size={16} /></button>
+                         <button onClick={() => onDelete(q._id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={16} /></button>
+                       </div>
+                     </div>
+                     <h3 className="text-sm font-bold text-slate-900 leading-relaxed mb-4 line-clamp-2" title={q?.questionText || ''}>{q?.questionText || 'Question text missing'}</h3>
+                     <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 border-t border-slate-50 pt-4">
+                        <Database size={12} />
+                        <span>{q.chapter}</span>
+                        <span className="ml-auto text-brand-orange font-black">Option {q.correctAnswer + 1}</span>
+                     </div>
+                   </motion.div>
+                 ))}
+               </div>
+
+               {filteredBySearch.length === 0 && (
+                 <div className="py-20 text-center bg-white rounded-[40px] border border-slate-100 border-dashed">
+                    <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-200 mx-auto mb-4"><Database size={32} /></div>
+                    <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No questions matched your search.</p>
+                 </div>
+               )}
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div 
+            key="bulk"
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+            className="space-y-8"
+          >
+             {!uploadedRawRows.length ? (
+               <div className="bg-white rounded-[40px] p-12 border border-slate-100 shadow-sm text-center max-w-4xl mx-auto transition-all">
+                  <div className="w-20 h-20 bg-orange-50 text-brand-orange rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner">
+                    <FileUp size={40} />
+                  </div>
+                  <h2 className="text-2xl font-bold text-slate-900 mb-2">Bulk Repository Upload</h2>
+                  <p className="text-slate-500 mb-10 max-w-md mx-auto">Upload Excel or CSV files to batch import hundreds of questions instantly.</p>
+                  
+                  <label className="inline-flex items-center gap-3 px-8 py-4 bg-slate-900 text-white rounded-2xl font-bold cursor-pointer hover:brightness-110 transition-all shadow-xl shadow-slate-200">
+                    <Download size={20} />
+                    <span>Select Data File</span>
+                    <input type="file" className="hidden" accept=".csv,.xlsx,.xls" onChange={e => onBulkFileChange(e.target.files?.[0] || null)} />
+                  </label>
+
+                  <div className="mt-12 pt-12 border-t border-slate-50 grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
+                     <div className="space-y-4">
+                        <h4 className="font-bold text-slate-900 flex items-center gap-2"><CheckCircle2 size={18} className="text-emerald-500" /> Required Headers</h4>
+                        <p className="text-xs text-slate-500 leading-relaxed font-medium">Your file must include: questionText, option1-4, correctAnswer (0-3), classLevel, subject, chapter.</p>
+                     </div>
+                     <div className="space-y-4">
+                        <h4 className="font-bold text-slate-900 flex items-center gap-2"><AlertCircle size={18} className="text-brand-orange" /> Difficulty Tags</h4>
+                        <p className="text-xs text-slate-500 leading-relaxed font-medium">Use 'easy', 'medium', or 'hard'. Other tags will default to 'easy' during processing.</p>
+                     </div>
+                  </div>
+               </div>
+             ) : bulkPreviewRows.length === 0 ? (
+                <div className="bg-white rounded-[40px] p-10 border border-slate-100 shadow-sm transition-all">
+                   <div className="flex items-center justify-between mb-10 pb-6 border-b border-slate-50">
+                      <div>
+                        <h2 className="text-2xl font-bold text-slate-900">Map Columns</h2>
+                        <p className="text-sm text-slate-500">Match your file headers to our question repository fields.</p>
+                      </div>
+                      <button onClick={() => setUploadedRawRows([])} className="text-xs font-black uppercase text-slate-400 hover:text-red-500 transition-colors">Cancel Upload</button>
+                   </div>
+
+                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+                      {(Object.keys(mapping) as FieldKey[]).map(key => (
+                        <div key={key} className="space-y-1.5">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 capitalize">{key.replace(/([A-Z])/g, ' $1')}</label>
+                          <select 
+                            value={mapping[key]}
+                            onChange={e => setMapping(p => ({...p, [key]: e.target.value}))}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold text-sm text-slate-900 appearance-none focus:ring-4 focus:ring-orange-500/10 transition-all cursor-pointer"
+                          >
+                            <option value="">Select Header...</option>
+                            {uploadedHeaders.map(h => <option key={h} value={h}>{h}</option>)}
+                          </select>
+                        </div>
+                      ))}
+                   </div>
+
+                   <button 
+                    onClick={onPreviewBulk}
+                    className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-xl shadow-slate-200 hover:brightness-110 transition-all flex items-center justify-center gap-3"
+                   >
+                     Initialize Preview
+                     <ChevronRight size={18} />
+                   </button>
+                </div>
+             ) : (
+                <div className="space-y-6 transition-all">
+                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm">
+                      <div className="flex items-center gap-6">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Rows</p>
+                          <p className="text-xl font-black text-slate-900">{bulkPreviewRows.length}</p>
+                        </div>
+                        <div className="w-px h-8 bg-slate-100" />
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Ready</p>
+                          <p className="text-xl font-black text-emerald-500">{bulkPreviewRows.filter(r => r.errors.length === 0).length}</p>
+                        </div>
+                        <div className="w-px h-8 bg-slate-100" />
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Selected</p>
+                          <p className="text-xl font-black text-brand-orange">{selectedRowNos.length}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                         <button 
+                          onClick={toggleAllValid}
+                          className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-200 transition-all"
+                         >
+                           {selectedRowNos.length > 0 ? 'Deselect All' : 'Select All Valid'}
+                         </button>
+                         <button 
+                          onClick={onUploadBulk}
+                          disabled={isUploadingBulk || selectedRowNos.length === 0}
+                          className="px-8 py-3 bg-slate-900 text-white rounded-xl font-bold text-sm shadow-lg shadow-slate-200 hover:brightness-110 disabled:opacity-50 transition-all flex items-center gap-2"
+                         >
+                           {isUploadingBulk ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Database size={16} />}
+                           Execute Import
+                         </button>
+                      </div>
+                   </div>
+
+                   <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50/50">
+                              <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">No.</th>
+                              <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Question Content</th>
+                              <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
+                              <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-50">
+                            {bulkPreviewRows.map(row => (
+                              <tr key={row.rowNo} className={row.errors.length > 0 ? 'bg-rose-50/30' : ''}>
+                                <td className="px-8 py-5 text-sm font-bold text-slate-400">#{row.rowNo}</td>
+                                <td className="px-8 py-5 max-w-md">
+                                   <div className="text-sm font-bold text-slate-700 line-clamp-1 mb-1">{row.questionText || <span className="text-rose-400 italic">Empty Source</span>}</div>
+                                   {row.errors.length > 0 && (
+                                     <div className="flex flex-wrap gap-1">
+                                       {row.errors.map((err, i) => (
+                                         <span key={i} className="px-1.5 py-0.5 bg-rose-100 text-[8px] font-black uppercase text-rose-600 rounded-md ring-1 ring-rose-200">{err}</span>
+                                       ))}
+                                     </div>
+                                   )}
+                                </td>
+                                <td className="px-8 py-5">
+                                   <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${row.errors.length === 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                      {row.errors.length === 0 ? 'Verified' : 'Incomplete'}
+                                   </span>
+                                </td>
+                                <td className="px-8 py-5 text-right">
+                                   <button 
+                                    onClick={() => toggleRow(row.rowNo)}
+                                    disabled={row.errors.length > 0}
+                                    className={`w-6 h-6 rounded-lg border flex items-center justify-center transition-all ${selectedRowNos.includes(row.rowNo) ? 'bg-slate-900 border-slate-900 text-white shadow-md' : 'border-slate-200 bg-white text-transparent disabled:opacity-30'}`}
+                                   >
+                                     <Check size={12} />
+                                   </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                   </div>
+                   
+                   <button 
+                      onClick={() => setBulkPreviewRows([])}
+                      className="w-full py-4 text-slate-400 font-bold text-sm hover:text-slate-900 transition-colors"
+                   >
+                     Back to Mapping
+                   </button>
+                </div>
+             )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
-function Input({
-  label,
-  value,
-  onChange,
-  required,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  required?: boolean;
-}) {
-  return (
-    <div>
-      <label className="block text-xs font-bold uppercase tracking-widest text-brand-black/70 mb-1">{label}</label>
-      <input value={value} onChange={(e) => onChange(e.target.value)} required={required} className="w-full border-2 border-brand-black px-3 py-2 font-medium" />
-    </div>
-  );
-}
+// --- REUSABLE MODERN COMPONENTS ---
 
-function TextArea({
-  label,
-  value,
-  onChange,
-  required,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  required?: boolean;
-}) {
+function Input({ label, value, onChange, required }: { label: string; value: string; onChange: (v: string) => void; required?: boolean }) {
   return (
-    <div>
-      <label className="block text-xs font-bold uppercase tracking-widest text-brand-black/70 mb-1">{label}</label>
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        required={required}
-        rows={3}
-        className="w-full border-2 border-brand-black px-3 py-2 font-medium resize-y"
+    <div className="space-y-1.5">
+      <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">{label}</label>
+      <input 
+        value={value} onChange={e => onChange(e.target.value)} required={required} 
+        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-orange-500/10 focus:bg-white focus:border-brand-orange transition-all font-medium text-slate-900 text-sm" 
       />
     </div>
   );
 }
 
-function Select({
-  label,
-  value,
-  onChange,
-  options,
-  optionLabel,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: string[];
-  optionLabel?: (v: string) => string;
-}) {
+function TextArea({ label, value, onChange, required }: { label: string; value: string; onChange: (v: string) => void; required?: boolean }) {
   return (
-    <div>
-      <label className="block text-xs font-bold uppercase tracking-widest text-brand-black/70 mb-1">{label}</label>
-      <select value={value} onChange={(e) => onChange(e.target.value)} className="w-full border-2 border-brand-black px-3 py-2 font-medium bg-white">
-        {options.map((opt) => (
-          <option key={opt || '__empty'} value={opt}>
-            {optionLabel ? optionLabel(opt) : opt}
-          </option>
-        ))}
-      </select>
+    <div className="space-y-1.5">
+      <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">{label}</label>
+      <textarea 
+        value={value} onChange={e => onChange(e.target.value)} required={required} rows={3}
+        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-orange-500/10 focus:bg-white focus:border-brand-orange transition-all font-medium text-slate-900 text-sm resize-none" 
+      />
     </div>
   );
 }
 
+function Select({ label, value, onChange, options, labels }: { label: string; value: string; onChange: (v: string) => void; options: string[]; labels?: string[] }) {
+  return (
+    <div className="space-y-1.5 flex-1">
+      <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">{label}</label>
+      <select 
+        value={value} onChange={e => onChange(e.target.value)} 
+        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-orange-500/10 focus:bg-white focus:border-brand-orange transition-all font-bold text-slate-900 text-sm appearance-none"
+      >
+        {options.map((opt, i) => <option key={opt} value={opt}>{labels ? labels[i] : opt}</option>)}
+      </select>
+    </div>
+  );
+}

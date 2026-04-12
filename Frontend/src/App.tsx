@@ -13,6 +13,8 @@ const AdminDashboard = lazy(() => import('./pages/Admin/AdminDashboard'));
 const StudentManagement = lazy(() => import('./pages/Admin/StudentManagement'));
 const AdminTestsManager = lazy(() => import('./pages/Admin/AdminTestsManager'));
 const AdminQuestionBank = lazy(() => import('./pages/Admin/AdminQuestionBank'));
+const AdminTestResults = lazy(() => import('./pages/Admin/AdminTestResults'));
+import ErrorBoundary from './components/ErrorBoundary';
 const StudentDashboard = lazy(() => import('./pages/Student/StudentDashboard'));
 const TestsList = lazy(() => import('./pages/Student/TestsList'));
 const TestDetailsPage = lazy(() => import('./pages/Student/TestDetails'));
@@ -432,13 +434,16 @@ function App() {
             
             <Route path="/admin" element={
               <ProtectedRoute allowedRole="admin">
-                <AdminLayout />
+                <ErrorBoundary>
+                  <AdminLayout />
+                </ErrorBoundary>
               </ProtectedRoute>
             }>
-              <Route index element={<AdminDashboard />} />
-              <Route path="students" element={<StudentManagement />} />
-              <Route path="questions" element={<AdminQuestionBank />} />
-              <Route path="tests" element={<AdminTestsManager />} />
+              <Route index element={<ErrorBoundary><AdminDashboard /></ErrorBoundary>} />
+              <Route path="students" element={<ErrorBoundary><StudentManagement /></ErrorBoundary>} />
+              <Route path="questions" element={<ErrorBoundary><AdminQuestionBank /></ErrorBoundary>} />
+              <Route path="tests" element={<ErrorBoundary><AdminTestsManager /></ErrorBoundary>} />
+              <Route path="results" element={<ErrorBoundary><AdminTestResults /></ErrorBoundary>} />
             </Route>
           </Routes>
         </Suspense>
