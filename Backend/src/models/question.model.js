@@ -48,10 +48,9 @@ const questionSchema = new mongoose.Schema(
             enum: ['easy', 'medium', 'hard'],
             default: 'easy',
         },
-        topic: {
-            type: String,
-            trim: true,
-            default: '', // Optional: can fall back to chapter if empty
+        topics: {
+            type: [String],
+            default: [], // Can fall back to chapter if empty
         },
         createdBy: {
             type: mongoose.Schema.Types.ObjectId,

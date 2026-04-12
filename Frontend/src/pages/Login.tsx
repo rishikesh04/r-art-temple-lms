@@ -1,16 +1,15 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Eye, EyeOff, Lock, Mail, ArrowRight, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../utils/axiosInstance';
-// No page-load animation (keep UX snappy + consistent).
-import LearningBro from '../assets/Learning-bro.svg';
 import LearningPana from '../assets/Learning-pana.svg';
-import Beaker from '../assets/beaker chemistry-bro.svg';
-import { Link } from 'react-router-dom';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
@@ -24,132 +23,149 @@ export default function Login() {
 
     try {
       const res = await axiosInstance.post('/auth/login', { email, password });
-      
-      // Save user to global state
       login(res.data.user);
-      
-      // Redirect based on role
       if (res.data.user.role === 'admin') {
         navigate('/admin');
       } else {
         navigate('/dashboard');
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Login failed. Please try again.');
+      setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <main className="min-h-[calc(100vh-88px)] px-4 py-10 relative">
-      {/* Orange corner fills (FF5722) like your sketch */}
-      <div
-        className="pointer-events-none absolute left-0 bottom-0 h-44 w-64 bg-brand-orange/25"
-        style={{
-          borderTopRightRadius: 80,
-          backgroundImage:
-            'repeating-linear-gradient(135deg, rgba(17,17,17,0.28) 0px, rgba(17,17,17,0.28) 6px, rgba(255,87,34,0.0) 6px, rgba(255,87,34,0.0) 14px)',
-        }}
-        aria-hidden="true"
-      />
-      <div
-        className="pointer-events-none absolute right-0 top-0 h-44 w-64 bg-brand-orange/25"
-        style={{
-          borderBottomLeftRadius: 80,
-          backgroundImage:
-            'repeating-linear-gradient(135deg, rgba(17,17,17,0.28) 0px, rgba(17,17,17,0.28) 6px, rgba(255,87,34,0.0) 6px, rgba(255,87,34,0.0) 14px)',
-        }}
-        aria-hidden="true"
-      />
+    <main className="min-h-screen bg-[#fafafa] flex items-center justify-center p-4 relative overflow-hidden font-['Inter']">
+      
+      {/* Background Orbs */}
+      <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-[#ff5722]/5 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#ff5722]/8 rounded-full blur-[120px] pointer-events-none" />
 
-      {/* Static illustration background (no sketches, no animation) */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-        {/* Side illustrations become light watermarks on mobile */}
-        <img
-          src={LearningPana}
-          alt=""
-          className="absolute -left-28 top-10 w-[360px] max-w-none opacity-25 lg:opacity-95 lg:left-0 lg:top-24 lg:w-[420px]"
-        />
-        <img
-          src={LearningBro}
-          alt=""
-          className="absolute -right-28 top-8 w-[360px] max-w-none opacity-25 lg:opacity-95 lg:right-0 lg:top-20 lg:w-[420px]"
-        />
-        <img
-          src={Beaker}
-          alt=""
-          className="absolute left-1/2 -translate-x-1/2 bottom-[-120px] w-[520px] max-w-none opacity-15 lg:opacity-20 lg:bottom-[-160px]"
-        />
-      </div>
+      <div className="w-full max-w-5xl flex items-center justify-center gap-12 lg:gap-20 relative z-10">
+        
+        {/* Left Side: Illustration (Hidden on mobile) */}
+        <motion.div 
+          initial={{ opacity: 0, x: -40 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="hidden lg:block lg:w-1/2"
+        >
+          <img 
+             src={LearningPana} 
+             alt="Access Learning" 
+             className="w-full h-auto drop-shadow-[0_20px_50px_rgba(255,87,34,0.1)]"
+          />
+        </motion.div>
 
-      <div className="mx-auto w-full max-w-6xl relative z-10 flex items-center justify-center">
-        {/* Center: Form card */}
-        <div className="w-full max-w-md bg-white border-4 border-brand-black p-8 shadow-solid relative">
-          {/* Orange corner accents behind card */}
-          <div className="absolute -left-6 -top-6 h-20 w-24 bg-brand-orange/30 border-4 border-brand-black shadow-solid-sm rounded-[22px] -z-10" />
-          <div className="absolute -right-6 -bottom-6 h-20 w-24 bg-brand-orange/30 border-4 border-brand-black shadow-solid-sm rounded-[22px] -z-10" />
-
-            <div className="mb-6">
-              <div className="inline-block px-3 py-1 border-2 border-brand-black bg-brand-orange text-brand-black font-bold text-xs uppercase tracking-wider shadow-solid-sm">
-                Student / Admin Access
-              </div>
-              <h1 className="mt-4 text-3xl sm:text-4xl font-black uppercase">System Login</h1>
-              <p className="mt-2 font-medium text-brand-black/70">
-                Use your email & password. Students must be admin-approved.
-              </p>
+        {/* Right Side: Login Card */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="w-full max-w-md"
+        >
+          <div className="bg-white rounded-[2.5rem] p-8 md:p-10 shadow-[0_20px_50px_rgba(0,0,0,0.04)] border border-slate-100 relative">
+            
+            <div className="mb-8">
+              <h1 className="text-3xl font-black text-slate-900 tracking-tight">Welcome Back</h1>
+              <p className="text-slate-500 font-medium mt-2">Sign in to continue your learning journey</p>
             </div>
 
-            {error && (
-              <div className="mb-6 p-4 bg-red-100 border-2 border-brand-black text-red-600 font-bold text-sm shadow-solid-sm">
-                {error}
-              </div>
-            )}
+            <AnimatePresence mode="wait">
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mb-6 overflow-hidden"
+                >
+                  <div className="bg-rose-50 text-rose-600 px-4 py-3 rounded-2xl text-sm font-bold flex items-center gap-2 border border-rose-100">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                    {error}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-            <form onSubmit={handleLogin} className="space-y-5">
-              <div>
-                <label className="block font-bold uppercase text-sm mb-2">Email Address</label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full p-3 border-2 border-brand-black focus:outline-none focus:shadow-solid-sm transition-shadow font-medium bg-white"
-                  placeholder="student@example.com"
-                  autoComplete="email"
-                />
+            <form onSubmit={handleLogin} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Email Address</label>
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#ff5722] transition-colors">
+                    <Mail size={18} />
+                  </div>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full bg-slate-50 border-none rounded-2xl py-4 pl-12 pr-4 text-slate-900 font-medium placeholder:text-slate-400 ring-1 ring-slate-200 focus:ring-2 focus:ring-[#ff5722] outline-none transition-all"
+                    placeholder="name@example.com"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block font-bold uppercase text-sm mb-2">Password</label>
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full p-3 border-2 border-brand-black focus:outline-none focus:shadow-solid-sm transition-shadow font-medium bg-white"
-                  placeholder="••••••••"
-                  autoComplete="current-password"
-                />
+              <div className="space-y-2">
+                <div className="flex items-center justify-between ml-1">
+                  <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">Password</label>
+                  <Link to="/forgot-password" title="Coming soon!" className="text-[11px] font-bold text-[#ff5722] hover:underline">Forgot password?</Link>
+                </div>
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#ff5722] transition-colors">
+                    <Lock size={18} />
+                  </div>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full bg-slate-50 border-none rounded-2xl py-4 pl-12 pr-12 text-slate-900 font-medium placeholder:text-slate-400 ring-1 ring-slate-200 focus:ring-2 focus:ring-[#ff5722] outline-none transition-all"
+                    placeholder="Enter your password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
 
-              <button
+              <motion.button
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.98 }}
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-4 bg-brand-orange border-2 border-brand-black font-bold text-lg shadow-solid hover:-translate-y-1 hover:-translate-x-1 hover:shadow-solid-hover active:translate-y-0 active:translate-x-0 active:shadow-none transition-all disabled:opacity-70"
+                className="w-full bg-[#ff5722] text-white py-4 rounded-2xl font-black text-lg shadow-[0_10px_20px_rgba(255,87,34,0.15)] hover:shadow-[0_15px_30px_rgba(255,87,34,0.25)] transition-all flex items-center justify-center gap-2 disabled:opacity-70"
               >
-                {isLoading ? 'AUTHENTICATING...' : 'ENTER'}
-              </button>
+                {isLoading ? (
+                  <Loader2 className="animate-spin" size={20} />
+                ) : (
+                  <>
+                    Sign In <ArrowRight size={20} />
+                  </>
+                )}
+              </motion.button>
             </form>
 
-            <div className="mt-6 border-t-2 border-brand-black/10 pt-4 text-sm font-medium">
-              New student?{' '}
-              <Link to="/signup" className="font-black underline underline-offset-4 hover:text-brand-orange">
-                Create account
-              </Link>
+            <div className="mt-10 text-center">
+              <p className="text-sm font-medium text-slate-500">
+                New to our platform?{' '}
+                <Link to="/signup" className="text-[#ff5722] font-black hover:underline underline-offset-4">
+                  Create an account
+                </Link>
+              </p>
             </div>
           </div>
+        </motion.div>
+      </div>
+
+      <div className="absolute bottom-6 left-0 right-0 text-center text-[10px] font-bold text-slate-300 uppercase tracking-widest leading-relaxed">
+        Secure Access &bull; Student Dashboard &bull; Admin Panel
       </div>
     </main>
   );
-}
+}

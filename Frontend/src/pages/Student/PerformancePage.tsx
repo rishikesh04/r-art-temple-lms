@@ -50,9 +50,10 @@ type AttemptsResponse = {
 type TopicStat = {
   topic: string;
   subject: string;
-  correct: number;
-  total: number;
+  wrongCount: number;
+  totalSeen: number;
   accuracy: number;
+  status: 'sufficient' | 'insufficient';
 };
 
 type TopicResponse = {
@@ -211,8 +212,11 @@ export default function PerformancePage() {
     streakScore,
   } = analytics;
 
-  const weakAreas = topicsData?.data?.filter(t => t.accuracy < 60) || [];
-  const strongAreas = topicsData?.data?.filter(t => t.accuracy >= 75) || [];
+  // Filter for sufficient data topics
+  const sufficientTopics = topicsData?.data?.filter(t => t.status === 'sufficient') || [];
+  const weakAreas = sufficientTopics.filter(t => t.accuracy < 60);
+  const strongAreas = sufficientTopics.filter(t => t.accuracy >= 75);
+  const insufficientCount = topicsData?.data?.filter(t => t.status === 'insufficient').length || 0;
 
   /* ──── Chart Interaction ──── */
   const handlePointClick = (data: any) => {
@@ -436,8 +440,14 @@ export default function PerformancePage() {
                ) : (
                  <div className="p-6 bg-emerald-50 rounded-2.4xl border border-emerald-100 text-center">
                     <CheckCircle2 size={32} className="text-emerald-500 mx-auto mb-3" />
-                    <p className="text-sm font-bold text-emerald-800">No major weak areas detected!</p>
-                    <p className="text-xs font-medium text-emerald-600 mt-1">Consistency is your strength. Keep maintaining this level.</p>
+                    <p className="text-sm font-bold text-emerald-800">
+                      {insufficientCount > 0 ? 'Collect more data' : 'No major weak areas detected!'}
+                    </p>
+                    <p className="text-xs font-medium text-emerald-600 mt-1">
+                      {insufficientCount > 0 
+                        ? `We need at least 3 questions in a topic for a complete analysis. You have ${insufficientCount} topics with partial data.`
+                        : 'Consistency is your strength. Keep maintaining this level.'}
+                    </p>
                  </div>
                )}
 
@@ -525,7 +535,7 @@ function TopicRow({ area, color }: { area: TopicStat; color: 'rose' | 'emerald' 
       </div>
       <div className="flex items-center justify-between mt-1">
         <span className="text-[10px] font-bold text-slate-400 italic capitalize">{area.subject}</span>
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{area.correct}/{area.total} Correct</span>
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{area.wrongCount} Wrong from {area.totalSeen} Seen</span>
       </div>
     </div>
   );

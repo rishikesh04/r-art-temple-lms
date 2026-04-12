@@ -1,38 +1,55 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Eye, EyeOff, User, Mail, Phone, GraduationCap, Lock, CheckCircle2, ArrowRight, Loader2, X, ChevronDown } from 'lucide-react';
 import axiosInstance from '../utils/axiosInstance';
-
 import LearningBro from '../assets/Learning-bro.svg';
-import LearningPana from '../assets/Learning-pana.svg';
-import Beaker from '../assets/beaker chemistry-bro.svg';
-import HappyAnnouncement from '../assets/Happy announcement-rafiki (1).svg';
 
-type ClassLevel = '6' | '7' | '8' | '9' | '10';
+type ClassLevel = '6' | '7' | '8' | '9' | '10' | '';
 
 export default function Signup() {
   const navigate = useNavigate();
-
-  const classLevels = useMemo<ClassLevel[]>(() => ['6', '7', '8', '9', '10'], []);
+  const classLevels = useMemo<Exclude<ClassLevel, ''>[]>(() => ['6', '7', '8', '9', '10'], []);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [classLevel, setClassLevel] = useState<ClassLevel>('10');
+  const [classLevel, setClassLevel] = useState<ClassLevel>('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [error, setError] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const canSubmit =
     name.trim().length >= 2 &&
     email.trim().length > 0 &&
     phone.trim().length >= 10 &&
+    classLevel !== '' &&
     password.length >= 6 &&
     !isLoading;
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (classLevel === '') {
+      setError('Please select your class');
+      return;
+    }
     setError('');
     setIsLoading(true);
 
@@ -44,8 +61,6 @@ export default function Signup() {
         password,
         classLevel,
       });
-
-      // Show success modal (student is pending approval, per backend rules)
       setShowSuccessModal(true);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Signup failed. Please try again.');
@@ -55,198 +70,273 @@ export default function Signup() {
   };
 
   return (
-    <main className="min-h-[calc(100vh-88px)] px-4 py-10 relative">
-      {/* Orange corner fills (FF5722) like your sketch */}
-      <div
-        className="pointer-events-none absolute left-0 bottom-0 h-44 w-64 bg-brand-orange/25"
-        style={{
-          borderTopRightRadius: 80,
-          backgroundImage:
-            'repeating-linear-gradient(135deg, rgba(17,17,17,0.28) 0px, rgba(17,17,17,0.28) 6px, rgba(255,87,34,0.0) 6px, rgba(255,87,34,0.0) 14px)',
-        }}
-        aria-hidden="true"
-      />
-      <div
-        className="pointer-events-none absolute right-0 top-0 h-44 w-64 bg-brand-orange/25"
-        style={{
-          borderBottomLeftRadius: 80,
-          backgroundImage:
-            'repeating-linear-gradient(135deg, rgba(17,17,17,0.28) 0px, rgba(17,17,17,0.28) 6px, rgba(255,87,34,0.0) 6px, rgba(255,87,34,0.0) 14px)',
-        }}
-        aria-hidden="true"
-      />
+    <main className="min-h-screen bg-[#fafafa] flex items-center justify-center p-4 relative overflow-hidden font-['Inter']">
+      
+      {/* Background Orbs */}
+      <div className="absolute top-[-5%] left-[-5%] w-[45%] h-[45%] bg-[#ff5722]/5 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-5%] w-[45%] h-[45%] bg-[#ff5722]/8 rounded-full blur-[100px] pointer-events-none" />
 
-      {/* Static illustration background (no sketches, no animation) */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-        <img
-          src={LearningPana}
-          alt=""
-          className="absolute -left-28 top-10 w-[360px] max-w-none opacity-25 lg:opacity-95 lg:left-0 lg:top-24 lg:w-[420px]"
-        />
-        <img
-          src={LearningBro}
-          alt=""
-          className="absolute -right-28 top-8 w-[360px] max-w-none opacity-25 lg:opacity-95 lg:right-0 lg:top-20 lg:w-[420px]"
-        />
-        <img
-          src={Beaker}
-          alt=""
-          className="absolute left-1/2 -translate-x-1/2 bottom-[-120px] w-[520px] max-w-none opacity-15 lg:opacity-20 lg:bottom-[-160px]"
-        />
-      </div>
+      <div className="w-full max-w-6xl flex items-center justify-center gap-12 lg:gap-20 relative z-10">
+        
+        {/* Right Side Card (Form) */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="w-full max-w-lg"
+        >
+          {/* Header */}
+          <div className="text-center mb-8 px-4">
+             <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">Create Account</h1>
+             <p className="text-slate-500 font-medium mt-2">Join our learning platform and start your journey today</p>
+          </div>
 
-      <div className="mx-auto w-full max-w-6xl relative z-10 flex items-center justify-center">
-        <div className="w-full max-w-md bg-white border-4 border-brand-black p-8 shadow-solid relative">
-          {/* Orange corner accents behind card */}
-          <div className="absolute -left-6 -top-6 h-20 w-24 bg-brand-orange/30 border-4 border-brand-black shadow-solid-sm rounded-[22px] -z-10" />
-          <div className="absolute -right-6 -bottom-6 h-20 w-24 bg-brand-orange/30 border-4 border-brand-black shadow-solid-sm rounded-[22px] -z-10" />
-
-            <div className="mb-6">
-              <div className="inline-block px-3 py-1 border-2 border-brand-black bg-brand-orange text-brand-black font-bold text-xs uppercase tracking-wider shadow-solid-sm">
-                Student Signup
-              </div>
-              <h1 className="mt-4 text-3xl sm:text-4xl font-black uppercase">Create Account</h1>
-              <p className="mt-2 font-medium text-brand-black/70">
-                Your account will be <span className="font-black">pending</span> until the admin approves it.
-              </p>
-            </div>
-
-            {error && (
-              <div className="mb-6 p-4 bg-red-100 border-2 border-brand-black text-red-600 font-bold text-sm shadow-solid-sm">
-                {error}
-              </div>
-            )}
+          {/* Signup Card */}
+          <div className="bg-white rounded-[2.5rem] p-8 md:p-10 shadow-[0_20px_50px_rgba(0,0,0,0.04)] border border-slate-100 relative">
+            
+            <AnimatePresence mode="wait">
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mb-6 overflow-hidden"
+                >
+                  <div className="bg-rose-50 text-rose-600 px-4 py-3 rounded-2xl text-sm font-bold flex items-center gap-2 border border-rose-100">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                    {error}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             <form onSubmit={handleSignup} className="space-y-5">
-              <div>
-                <label className="block font-bold uppercase text-sm mb-2">Full Name</label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full p-3 border-2 border-brand-black focus:outline-none focus:shadow-solid-sm transition-shadow font-medium bg-white"
-                  placeholder="Your name"
-                  autoComplete="name"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold uppercase text-sm mb-2">Email</label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full p-3 border-2 border-brand-black focus:outline-none focus:shadow-solid-sm transition-shadow font-medium bg-white"
-                  placeholder="student@example.com"
-                  autoComplete="email"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-bold uppercase text-sm mb-2">Phone</label>
+              {/* Full Name */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Full Name</label>
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#ff5722] transition-colors">
+                    <User size={18} />
+                  </div>
                   <input
-                    type="tel"
+                    type="text"
                     required
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="w-full p-3 border-2 border-brand-black focus:outline-none focus:shadow-solid-sm transition-shadow font-medium bg-white"
-                    placeholder="9999999999"
-                    autoComplete="tel"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full bg-slate-50 border-none rounded-2xl py-3.5 pl-12 pr-4 text-slate-900 font-medium placeholder:text-slate-400 ring-1 ring-slate-200 focus:ring-2 focus:ring-[#ff5722] outline-none transition-all"
+                    placeholder="John Doe"
                   />
                 </div>
-                <div>
-                  <label className="block font-bold uppercase text-sm mb-2">Class</label>
-                  <select
-                    value={classLevel}
-                    onChange={(e) => setClassLevel(e.target.value as ClassLevel)}
-                    className="w-full p-3 border-2 border-brand-black focus:outline-none focus:shadow-solid-sm transition-shadow font-bold bg-white"
-                  >
-                    {classLevels.map((c) => (
-                      <option key={c} value={c}>
-                        Class {c}
-                      </option>
-                    ))}
-                  </select>
+              </div>
+
+              {/* Email */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Email</label>
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#ff5722] transition-colors">
+                    <Mail size={18} />
+                  </div>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full bg-slate-50 border-none rounded-2xl py-3.5 pl-12 pr-4 text-slate-900 font-medium placeholder:text-slate-400 ring-1 ring-slate-200 focus:ring-2 focus:ring-[#ff5722] outline-none transition-all"
+                    placeholder="name@example.com"
+                  />
                 </div>
               </div>
 
-              <div>
-                <label className="block font-bold uppercase text-sm mb-2">Password</label>
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full p-3 border-2 border-brand-black focus:outline-none focus:shadow-solid-sm transition-shadow font-medium bg-white"
-                  placeholder="Minimum 6 characters"
-                  autoComplete="new-password"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Phone</label>
+                  <div className="relative group">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#ff5722] transition-colors">
+                      <Phone size={18} />
+                    </div>
+                    <input
+                      type="tel"
+                      required
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full bg-slate-50 border-none rounded-2xl py-3.5 pl-12 pr-4 text-slate-900 font-medium placeholder:text-slate-400 ring-1 ring-slate-200 focus:ring-2 focus:ring-[#ff5722] outline-none transition-all"
+                      placeholder="9999999999"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5" ref={dropdownRef}>
+                  <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Class</label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                      className={`w-full bg-slate-50 rounded-2xl py-3.5 pl-12 pr-4 text-left font-bold ring-1 ring-slate-200 transition-all flex items-center justify-between group
+                        ${isDropdownOpen ? 'ring-2 ring-[#ff5722] bg-white' : 'hover:bg-slate-100'}
+                        ${classLevel ? 'text-slate-900' : 'text-slate-400'}
+                      `}
+                    >
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-slate-600 transition-colors">
+                         <GraduationCap size={18} />
+                      </div>
+                      <span>{classLevel ? `Class ${classLevel}` : 'Choose...'}</span>
+                      <ChevronDown size={18} className={`transition-transform duration-300 ${isDropdownOpen ? 'rotate-180 text-[#ff5722]' : 'text-slate-400'}`} />
+                    </button>
+
+                    <AnimatePresence>
+                      {isDropdownOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                          transition={{ duration: 0.2, ease: "easeOut" }}
+                          className="absolute z-50 left-0 right-0 mt-2 bg-white rounded-3xl shadow-[0_20px_40px_rgba(0,0,0,0.08)] border border-slate-100 overflow-hidden py-2"
+                        >
+                          {classLevels.map((c) => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => {
+                                setClassLevel(c);
+                                setIsDropdownOpen(false);
+                              }}
+                              className={`w-full px-6 py-3 text-left text-sm font-bold transition-all flex items-center justify-between
+                                ${classLevel === c ? 'bg-[#ff5722]/5 text-[#ff5722]' : 'text-slate-600 hover:bg-slate-50'}
+                              `}
+                            >
+                              Class {c}
+                              {classLevel === c && <div className="w-1.5 h-1.5 rounded-full bg-[#ff5722]" />}
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
               </div>
 
-              <button
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Password</label>
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#ff5722] transition-colors">
+                    <Lock size={18} />
+                  </div>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full bg-slate-50 border-none rounded-2xl py-3.5 pl-12 pr-12 text-slate-900 font-medium placeholder:text-slate-400 ring-1 ring-slate-200 focus:ring-2 focus:ring-[#ff5722] outline-none transition-all"
+                    placeholder="Min. 6 characters"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              <motion.button
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.98 }}
                 type="submit"
                 disabled={!canSubmit}
-                className="w-full py-4 bg-brand-orange border-2 border-brand-black font-bold text-lg shadow-solid hover:-translate-y-1 hover:-translate-x-1 hover:shadow-solid-hover active:translate-y-0 active:translate-x-0 active:shadow-none transition-all disabled:opacity-70"
+                className="w-full bg-[#ff5722] text-white py-4 mt-2 rounded-2xl font-black text-lg shadow-[0_10px_20px_rgba(255,87,34,0.15)] hover:shadow-[0_15px_30px_rgba(255,87,34,0.25)] transition-all flex items-center justify-center gap-2 disabled:opacity-70"
               >
-                {isLoading ? 'CREATING...' : 'CREATE ACCOUNT'}
-              </button>
+                {isLoading ? (
+                  <Loader2 className="animate-spin" size={20} />
+                ) : (
+                  <>
+                    Create Account <ArrowRight size={20} />
+                  </>
+                )}
+              </motion.button>
             </form>
 
-            <div className="mt-6 border-t-2 border-brand-black/10 pt-4 text-sm font-medium">
-              Already have an account?{' '}
-              <Link to="/login" className="font-black underline underline-offset-4 hover:text-brand-orange">
-                Sign in
-              </Link>
+            <div className="mt-8 text-center">
+              <p className="text-sm font-medium text-slate-500">
+                Already have an account?{' '}
+                <Link to="/login" className="text-[#ff5722] font-black hover:underline underline-offset-4">
+                  Sign in
+                </Link>
+              </p>
             </div>
           </div>
+        </motion.div>
+
+        {/* Left Side: Illustration (Hidden on mobile) */}
+        <motion.div 
+          initial={{ opacity: 0, x: 40 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="hidden lg:block lg:w-1/2"
+        >
+          <img 
+             src={LearningBro} 
+             alt="Start Learning" 
+             className="w-full h-auto drop-shadow-[0_20px_50px_rgba(255,87,34,0.1)]"
+          />
+        </motion.div>
       </div>
 
-      {/* Success modal */}
-      {showSuccessModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div
-            className="absolute inset-0 bg-brand-black/60"
-            onClick={() => setShowSuccessModal(false)}
-          />
+      {/* Success Modal */}
+      <AnimatePresence>
+        {showSuccessModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4 overflow-hidden">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+              onClick={() => setShowSuccessModal(false)}
+            />
 
-          <div className="relative w-full max-w-lg bg-white border-4 border-brand-black shadow-solid">
-            {/* Banner strip with exact text */}
-            <div className="bg-brand-orange border-b-4 border-brand-black p-4">
-              <div className="text-white font-black uppercase tracking-wide">
-                Account created successfully . waiting for the admin approval.
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="relative w-full max-w-lg bg-white rounded-[3rem] p-8 md:p-12 shadow-2xl text-center"
+            >
+              <button 
+                onClick={() => setShowSuccessModal(false)}
+                className="absolute right-6 top-6 p-2 hover:bg-slate-100 rounded-full transition-colors"
+              >
+                <X size={24} className="text-slate-400" />
+              </button>
+
+              <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-sm">
+                <CheckCircle2 size={40} />
               </div>
-            </div>
 
-            <div className="p-6">
-              <img src={HappyAnnouncement} alt="Account created" className="w-full h-64 object-contain" />
+              <h2 className="text-2xl md:text-3xl font-black text-slate-900 mb-4">Registration Success!</h2>
+              <p className="text-slate-500 font-medium leading-relaxed mb-8">
+                Your account has been created. To maintain security, an admin will review and approve your access shortly.
+              </p>
 
-              <div className="mt-6 flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col sm:flex-row gap-4">
                 <button
-                  type="button"
                   onClick={() => {
                     setShowSuccessModal(false);
                     navigate('/login');
                   }}
-                  className="flex-1 py-3 bg-brand-orange border-2 border-brand-black font-bold uppercase shadow-solid-sm hover:-translate-y-1 hover:-translate-x-1 hover:shadow-solid active:translate-y-0 active:translate-x-0 active:shadow-none transition-all"
+                  className="flex-1 py-4 bg-[#ff5722] text-white rounded-2xl font-black uppercase tracking-wide shadow-lg shadow-[#ff5722]/20 hover:shadow-[#ff5722]/30 transition-all active:scale-95"
                 >
                   Go to Login
                 </button>
                 <button
-                  type="button"
                   onClick={() => setShowSuccessModal(false)}
-                  className="flex-1 py-3 bg-white border-2 border-brand-black font-bold uppercase shadow-solid-sm hover:-translate-y-1 hover:-translate-x-1 hover:shadow-solid active:translate-y-0 active:translate-x-0 active:shadow-none transition-all"
+                  className="flex-1 py-4 bg-slate-50 text-slate-500 rounded-2xl font-black uppercase tracking-wide hover:bg-slate-100 transition-all active:scale-95"
                 >
                   Close
                 </button>
               </div>
-            </div>
+            </motion.div>
           </div>
-        </div>
-      ) : null}
+        )}
+      </AnimatePresence>
     </main>
   );
 }

@@ -96,49 +96,59 @@ export const getTopicPerformance = async (req, res) => {
     const attempts = await Attempt.find({ student: req.user._id })
       .populate({
         path: 'answers.question',
-        select: 'topic chapter subject',
+        select: 'topics chapter subject',
       })
       .lean();
 
     const topicStats = {};
 
     attempts.forEach((attempt) => {
-      // Only include attempts where result is available (test has ended)
-      // Note: We'll assume if score is recorded, it's valid for analytics
-      // but in this LMS, scores are recorded even if not revealed to students yet.
-      // However, for personal analytics, we might want to only show "Final" results.
-      // Let's stick to all attempts that have answers for now to give most data.
-      
       attempt.answers.forEach((ans) => {
         if (!ans.question) return;
 
-        // Use topic if available, fallback to chapter
-        const topicName = ans.question.topic || ans.question.chapter || 'Unknown';
+        // Use topics array if available and not empty, fallback to chapter
+        const topicsToShow = (ans.question.topics && ans.question.topics.length > 0)
+          ? ans.question.topics
+          : [ans.question.chapter || 'Unknown'];
         
-        if (!topicStats[topicName]) {
-          topicStats[topicName] = { 
-            topic: topicName,
-            subject: ans.question.subject,
-            correct: 0, 
-            total: 0 
-          };
-        }
+        topicsToShow.forEach(topicName => {
+          if (!topicStats[topicName]) {
+            topicStats[topicName] = { 
+              topic: topicName,
+              subject: ans.question.subject,
+              correctCount: 0, 
+              totalSeen: 0 
+            };
+          }
 
-        topicStats[topicName].total += 1;
-        if (ans.isCorrect) {
-          topicStats[topicName].correct += 1;
-        }
+          topicStats[topicName].totalSeen += 1;
+          if (ans.isCorrect) {
+            topicStats[topicName].correctCount += 1;
+          }
+        });
       });
     });
 
     // Calculate percentages and format
-    const result = Object.values(topicStats).map((s) => ({
-      ...s,
-      accuracy: Math.round((s.correct / s.total) * 100),
-    }));
+    const result = Object.values(topicStats).map((s) => {
+      const accuracy = s.totalSeen > 0 ? Math.round((s.correctCount / s.totalSeen) * 100) : 0;
+      return {
+        topic: s.topic,
+        subject: s.subject,
+        wrongCount: s.totalSeen - s.correctCount,
+        totalSeen: s.totalSeen,
+        accuracy,
+        status: s.totalSeen >= 3 ? 'sufficient' : 'insufficient'
+      };
+    });
 
-    // Sort by accuracy (weak areas first)
-    result.sort((a, b) => a.accuracy - b.accuracy);
+    // Sort: sufficient data first, then by accuracy (weak areas first)
+    result.sort((a, b) => {
+      if (a.status !== b.status) {
+        return a.status === 'sufficient' ? -1 : 1;
+      }
+      return a.accuracy - b.accuracy;
+    });
 
     return res.status(200).json({
       success: true,
