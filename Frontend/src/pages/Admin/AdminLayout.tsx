@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, Link } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Users, 
@@ -11,13 +11,13 @@ import {
   ChevronRight,
   LogOut,
   Bell,
-  Settings
+  Settings,
+  Home as HomeIcon
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 
 export default function AdminLayout() {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
   const location = useLocation();
 
@@ -113,12 +113,12 @@ export default function AdminLayout() {
         {/* Mobile Header */}
         <header className="md:hidden sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-100 z-50 transition-all duration-300">
           <div className="px-6 h-16 flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <Link to="/" className="flex items-center gap-2">
               <div className="w-8 h-8 bg-brand-orange rounded-lg flex items-center justify-center text-white font-bold shadow-md shadow-orange-100">
                 R
               </div>
               <span className="font-bold text-slate-900 tracking-tight">Admin Portal</span>
-            </div>
+            </Link>
           </div>
         </header>
 
@@ -139,7 +139,7 @@ export default function AdminLayout() {
 
         {/* --- MOBILE BOTTOM NAV --- */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-slate-200 px-6 py-3 flex justify-between items-center z-50">
-          {navItems.slice(0, 4).map((item) => {
+          {navItems.map((item) => {
             const isActive = location.pathname === item.path || (item.end && location.pathname === '/admin');
             return (
               <NavLink
@@ -154,86 +154,8 @@ export default function AdminLayout() {
               </NavLink>
             );
           })}
-          
-          {/* Mobile "More" Drawer Button */}
-          <button 
-            onClick={() => setIsMobileMenuOpen(true)}
-            className="flex flex-col items-center gap-1 text-slate-400"
-          >
-            <div className="p-2 rounded-xl">
-              <Menu size={22} />
-            </div>
-            <span className="text-[10px] font-bold uppercase tracking-tight">More</span>
-          </button>
         </nav>
       </div>
-
-      {/* --- MOBILE "MORE" DRAWER --- */}
-      <AnimatePresence>
-        {isMobileMenuOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="md:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60]"
-            />
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="md:hidden fixed bottom-0 left-0 right-0 bg-white rounded-t-[32px] p-8 z-[70] shadow-2xl"
-            >
-              <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-8" />
-              
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold text-slate-900">Manage Platform</h3>
-                  <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 bg-slate-100 rounded-full">
-                    <X size={20} className="text-slate-600" />
-                  </button>
-                </div>
-                
-                <div className="grid grid-cols-1 gap-3">
-                  <NavLink
-                    to="/admin/questions"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 bg-white rounded-xl shadow-sm">
-                        <Database size={20} className="text-slate-900" />
-                      </div>
-                      <span className="font-bold text-slate-900">Question Bank</span>
-                    </div>
-                    <ChevronRight size={18} className="text-slate-400" />
-                  </NavLink>
-
-                  <button className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 opacity-50">
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 bg-white rounded-xl shadow-sm">
-                        <Settings size={20} className="text-slate-900" />
-                      </div>
-                      <span className="font-bold text-slate-900">Portal Settings</span>
-                    </div>
-                    <ChevronRight size={18} className="text-slate-400" />
-                  </button>
-                </div>
-
-                <button 
-                  onClick={() => logout()}
-                  className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-red-50 text-red-600 font-bold"
-                >
-                  <LogOut size={20} /> Disconnect Account
-                </button>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
     </div>
   );
 }

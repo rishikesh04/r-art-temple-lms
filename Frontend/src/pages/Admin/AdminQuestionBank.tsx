@@ -115,7 +115,7 @@ export default function AdminQuestionBank() {
     difficulty: '', explanation: '',
   });
 
-  const [activeTab, setActiveTab] = useState<'manage' | 'bulk'>('manage');
+  const [view, setView] = useState<'list' | 'create' | 'edit' | 'bulk'>('list');
 
   const loadQuestions = async () => {
     setIsLoading(true);
@@ -153,6 +153,7 @@ export default function AdminQuestionBank() {
   const resetForm = () => {
     setForm(INITIAL_FORM);
     setEditId(null);
+    setView('list');
   };
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -198,6 +199,7 @@ export default function AdminQuestionBank() {
       chapter: q.chapter || '',
       difficulty: (q.difficulty === 'hard' || q.difficulty === 'medium' ? q.difficulty : 'easy') as 'easy' | 'medium' | 'hard',
     });
+    setView('edit');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -215,7 +217,6 @@ export default function AdminQuestionBank() {
     }
   };
 
-  // --- BULK LOGIC (Simplified & Polished) ---
   const suggestMapping = (headers: string[]): ColumnMapping => {
     const p: Record<FieldKey, string[]> = {
       questionText: ['questiontext', 'question', 'qtext', 'ques'],
@@ -319,7 +320,7 @@ export default function AdminQuestionBank() {
       setBulkPreviewRows([]);
       setUploadedRawRows([]);
       await loadQuestions();
-      setActiveTab('manage');
+      setView('list');
     } catch (err) {
       setError(getApiMessage(err, 'Bulk upload failed.'));
     } finally {
@@ -341,206 +342,259 @@ export default function AdminQuestionBank() {
   };
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8 min-h-screen">
       
-      {/* Header */}
-      <section className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <h1 className="text-3xl md:text-5xl font-bold text-slate-900 tracking-tight mb-2">Question Bank</h1>
-          <p className="text-slate-500 font-medium">Curate high-performance assessments with structured content.</p>
+      {/* Dynamic Header */}
+      <section className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-2">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+             {(view !== 'list') && (
+               <button 
+                onClick={resetForm}
+                className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-900 transition-all active:scale-90"
+               >
+                 <X size={24} />
+               </button>
+             )}
+             <h1 className="text-3xl md:text-5xl font-extrabold text-slate-900 tracking-tight">Question Bank</h1>
+          </div>
+          <p className="text-slate-500 font-medium ml-1">
+            {view === 'list' ? 'Curate high-performance assessments.' : 
+             view === 'create' ? 'Define a new targeted query.' :
+             view === 'edit' ? 'Modify existing repository content.' : 'Batch import from secondary sources.'}
+          </p>
         </div>
         
-        <div className="flex bg-white p-1 rounded-2xl border border-slate-200 shadow-sm w-fit">
-          <button 
-            onClick={() => setActiveTab('manage')}
-            className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'manage' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'text-slate-500 hover:text-slate-900'}`}
-          >
-            Manage
-          </button>
-          <button 
-            onClick={() => setActiveTab('bulk')}
-            className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'bulk' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'text-slate-500 hover:text-slate-900'}`}
-          >
-            Bulk Upload
-          </button>
-        </div>
+        {view === 'list' && (
+          <div className="flex items-center gap-3 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit">
+            <button 
+              onClick={() => setView('create')}
+              className="p-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all flex items-center gap-2 font-bold text-xs"
+              title="Add New Question"
+            >
+              <Plus size={18} />
+              <span className="hidden md:inline">Manual Create</span>
+            </button>
+            <div className="w-px h-6 bg-slate-100" />
+            <button 
+              onClick={() => setView('bulk')}
+              className="p-3 bg-slate-50 text-slate-600 rounded-xl hover:bg-slate-100 transition-all flex items-center gap-2 font-bold text-xs"
+              title="Bulk Repository Upload"
+            >
+              <FileUp size={18} />
+              <span className="hidden md:inline">Bulk Import</span>
+            </button>
+          </div>
+        )}
       </section>
 
       <AnimatePresence mode="wait">
-        {activeTab === 'manage' ? (
+        {view === 'list' ? (
           <motion.div 
-            key="manage"
-            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-            className="grid grid-cols-1 xl:grid-cols-12 gap-10"
+            key="list"
+            initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }}
+            className="space-y-8"
           >
-            {/* LEFT: FORM */}
-            <div className="xl:col-span-4 space-y-6">
-               <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden sticky top-24">
-                 <div className="p-8 border-b border-slate-50 flex items-center justify-between">
-                    <div>
-                      <h2 className="font-bold text-slate-900">{editId ? 'Edit Entry' : 'New Question'}</h2>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Editor Component</p>
+            {/* Search & Filter Strip */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+              <div className="md:col-span-12 lg:col-span-8 relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                <input 
+                  type="text" placeholder="Search content, chapter or options..." 
+                  value={search} onChange={e => setSearch(e.target.value)}
+                  className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-[28px] focus:ring-4 focus:ring-orange-500/10 focus:border-brand-orange transition-all font-medium"
+                />
+              </div>
+              <div className="md:col-span-6 lg:col-span-2 flex gap-2">
+                <select 
+                  value={filterClass} onChange={e => setFilterClass(e.target.value)} 
+                  className="flex-1 px-4 py-4 bg-white border border-slate-200 rounded-[28px] font-bold text-sm text-slate-600 appearance-none focus:outline-none focus:border-brand-orange"
+                >
+                  <option value="">All Classes</option>
+                  {['6','7','8','9','10','11','12'].map(c => <option key={c} value={c}>Class {c}</option>)}
+                </select>
+              </div>
+              <div className="md:col-span-6 lg:col-span-2 flex gap-2">
+                 <button onClick={loadQuestions} className="flex-1 bg-slate-900 text-white rounded-[28px] font-bold text-sm shadow-lg shadow-slate-200 hover:brightness-110 flex items-center justify-center gap-2">
+                   <Filter size={18} /> Apply
+                 </button>
+              </div>
+            </div>
+
+            {/* Questions Feed */}
+            {isLoading ? (
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
+                {[...Array(6)].map((_, i) => <div key={i} className="h-64 bg-white rounded-[40px] border border-slate-100" />)}
+               </div>
+            ) : filteredBySearch.length === 0 ? (
+               <div className="py-24 text-center bg-white rounded-[50px] border border-slate-100 border-dashed">
+                  <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center text-slate-200 mx-auto mb-6"><Database size={40} /></div>
+                  <h3 className="text-xl font-bold text-slate-900 mb-1">No Results Captured</h3>
+                  <p className="text-slate-400 font-medium max-w-xs mx-auto text-sm">Targeted search yields no matches. Clear filters or add new content.</p>
+               </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredBySearch.map((q, i) => (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+                    key={q._id} 
+                    className="bg-white p-6 rounded-[40px] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 transition-all group relative overflow-hidden"
+                  >
+                    <div className="flex justify-between items-start mb-6">
+                      <div className="flex flex-wrap gap-2">
+                        <span className={`px-3 py-1 text-[8px] font-black uppercase tracking-widest rounded-lg ${q.difficulty === 'hard' ? 'bg-rose-50 text-rose-600' : q.difficulty === 'medium' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                          {q.difficulty}
+                        </span>
+                        <span className="px-3 py-1 bg-slate-50 text-slate-500 text-[8px] font-black uppercase tracking-widest rounded-lg">{q.subject}</span>
+                        <span className="px-3 py-1 bg-orange-50 text-brand-orange text-[8px] font-black uppercase tracking-widest rounded-lg">Class {q.classLevel}</span>
+                      </div>
+                      <div className="flex gap-1.5">
+                        <button onClick={() => startEdit(q)} className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-all"><Edit3 size={16} /></button>
+                        <button onClick={() => onDelete(q._id)} className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 size={16} /></button>
+                      </div>
                     </div>
-                    {editId && (
-                      <button onClick={resetForm} className="p-2 bg-slate-50 rounded-xl text-slate-400 hover:text-red-500 transition-colors">
-                        <X size={18} />
+                    
+                    <h3 className="text-base font-bold text-slate-900 leading-relaxed mb-6 line-clamp-3 min-h-[4.5rem]" title={q?.questionText || ''}>
+                      {q?.questionText || 'Corrupted Record'}
+                    </h3>
+
+                    <div className="pt-6 border-t border-slate-50 flex items-center gap-3">
+                       <div className="w-8 h-8 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400">
+                          <Database size={14} />
+                       </div>
+                       <div className="flex-1 min-w-0">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 truncate">{q.chapter}</p>
+                       </div>
+                       <div className="px-3 py-1 bg-slate-900 text-white text-[8px] font-black uppercase tracking-widest rounded-lg">
+                          Opt {q.correctAnswer + 1}
+                       </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        ) : (view === 'create' || view === 'edit') ? (
+          <motion.div 
+            key="editor"
+            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+            className="max-w-4xl mx-auto w-full"
+          >
+             <div className="bg-white rounded-[50px] border border-slate-100 shadow-sm overflow-hidden">
+                <div className="p-10 border-b border-slate-50 bg-slate-50/30 flex items-center justify-between">
+                   <div>
+                     <h2 className="text-2xl font-black text-slate-900">{editId ? 'Edit Question' : 'Manual Entry'}</h2>
+                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Repository Editor</p>
+                   </div>
+                   <button onClick={resetForm} className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-slate-400 hover:text-slate-900 shadow-sm transition-all active:scale-95">
+                      <X size={20} />
+                   </button>
+                </div>
+
+                <form onSubmit={onSubmit} className="p-10 space-y-8">
+                   <div className="space-y-6">
+                      <TextArea label="Question Content" value={form.questionText} onChange={v => setForm(p => ({...p, questionText: v}))} required />
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {form.options.map((opt, i) => (
+                          <Input key={i} label={`Option ${i+1}`} value={opt} onChange={v => {
+                            const n = [...form.options] as [string, string, string, string];
+                            n[i] = v;
+                            setForm(p => ({...p, options: n}));
+                          }} required />
+                        ))}
+                      </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <Select label="Correct Ans" value={String(form.correctAnswer)} onChange={v => setForm(p => ({...p, correctAnswer: Number(v)}))} options={['0','1','2','3']} labels={['Opt 1','Opt 2','Opt 3','Opt 4']} />
+                        <Select label="Difficulty" value={form.difficulty} onChange={v => setForm(p => ({...p, difficulty: v as any}))} options={['easy','medium','hard']} />
+                        <Select label="Class" value={form.classLevel} onChange={v => setForm(p => ({...p, classLevel: v}))} options={['6','7','8','9','10','11','12']} />
+                        <Select label="Subject" value={form.subject} onChange={v => setForm(p => ({...p, subject: v as any}))} options={['Math','Science']} />
+                      </div>
+                      
+                      <div className="grid grid-cols-1 gap-6 pt-4 border-t border-slate-50">
+                        <Input label="Chapter / Topic" value={form.chapter} onChange={v => setForm(p => ({...p, chapter: v}))} required />
+                        <TextArea label="Solution / Explanation" value={form.explanation} onChange={v => setForm(p => ({...p, explanation: v}))} />
+                      </div>
+                   </div>
+
+                   <div className="flex flex-col md:flex-row gap-4 pt-4">
+                      <button 
+                        type="submit" 
+                        disabled={isSaving}
+                        className="flex-1 flex items-center justify-center gap-3 py-5 bg-slate-900 text-white rounded-[28px] font-bold shadow-xl shadow-slate-200 hover:brightness-110 disabled:opacity-50 transition-all uppercase tracking-widest text-xs"
+                      >
+                        {isSaving ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Send size={16} />}
+                        {editId ? 'Commit Changes' : 'Initialize Question'}
                       </button>
-                    )}
-                 </div>
-
-                 <form onSubmit={onSubmit} className="p-8 space-y-5">
-                    <div className="space-y-4">
-                       <TextArea label="Question Content" value={form.questionText} onChange={v => setForm(p => ({...p, questionText: v}))} required />
-                       
-                       <div className="grid grid-cols-1 gap-3">
-                         {form.options.map((opt, i) => (
-                           <Input key={i} label={`Option ${i+1}`} value={opt} onChange={v => {
-                             const n = [...form.options] as [string, string, string, string];
-                             n[i] = v;
-                             setForm(p => ({...p, options: n}));
-                           }} required />
-                         ))}
-                       </div>
-
-                       <div className="grid grid-cols-2 gap-3">
-                         <Select label="Correct Ans" value={String(form.correctAnswer)} onChange={v => setForm(p => ({...p, correctAnswer: Number(v)}))} options={['0','1','2','3']} labels={['Opt 1','Opt 2','Opt 3','Opt 4']} />
-                         <Select label="Difficulty" value={form.difficulty} onChange={v => setForm(p => ({...p, difficulty: v as any}))} options={['easy','medium','hard']} />
-                       </div>
-
-                       <div className="grid grid-cols-2 gap-3">
-                         <Select label="Class" value={form.classLevel} onChange={v => setForm(p => ({...p, classLevel: v}))} options={['6','7','8','9','10','11','12']} />
-                         <Select label="Subject" value={form.subject} onChange={v => setForm(p => ({...p, subject: v as any}))} options={['Math','Science']} />
-                       </div>
-                       
-                       <Input label="Chapter / Topic" value={form.chapter} onChange={v => setForm(p => ({...p, chapter: v}))} required />
-                       <TextArea label="Solution / Explanation" value={form.explanation} onChange={v => setForm(p => ({...p, explanation: v}))} />
-                    </div>
-
-                    <button 
-                      type="submit" 
-                      disabled={isSaving}
-                      className="w-full flex items-center justify-center gap-3 py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-xl shadow-slate-200 hover:brightness-110 disabled:opacity-50 transition-all"
-                    >
-                      {isSaving ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Send size={18} />}
-                      {editId ? 'Apply Changes' : 'Initialize Question'}
-                    </button>
-                 </form>
-               </div>
-            </div>
-
-            {/* RIGHT: LIST */}
-            <div className="xl:col-span-8 space-y-8">
-               {/* Filters */}
-               <div className="flex flex-col md:flex-row gap-4 items-center">
-                  <div className="flex-1 relative w-full">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                    <input 
-                      type="text" placeholder="Search by content, chapter or options..." 
-                      value={search} onChange={e => setSearch(e.target.value)}
-                      className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-orange-500/10 transition-all font-medium"
-                    />
-                  </div>
-                  <div className="flex gap-2 w-full md:w-auto">
-                    <select value={filterClass} onChange={e => setFilterClass(e.target.value)} className="px-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-xs text-slate-600 focus:outline-none">
-                      <option value="">Classes</option>
-                      {['6','7','8','9','10','11','12'].map(c => <option key={c} value={c}>Class {c}</option>)}
-                    </select>
-                    <button onClick={loadQuestions} className="p-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all">
-                      <Filter size={20} />
-                    </button>
-                  </div>
-               </div>
-
-               {/* Questions Summary */}
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 {filteredBySearch.map((q, i) => (
-                   <motion.div 
-                     initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
-                     key={q._id} 
-                     className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 transition-all group"
-                   >
-                     <div className="flex justify-between items-start mb-4">
-                       <div className="flex gap-2">
-                         <span className={`px-2 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg ${q.difficulty === 'hard' ? 'bg-rose-50 text-rose-600' : q.difficulty === 'medium' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                           {q.difficulty}
-                         </span>
-                         <span className="px-2 py-1 bg-slate-50 text-slate-500 text-[10px] font-black uppercase tracking-widest rounded-lg">{q.subject}</span>
-                         <span className="px-2 py-1 bg-orange-50 text-brand-orange text-[10px] font-black uppercase tracking-widest rounded-lg">Lvl {q.classLevel}</span>
-                       </div>
-                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                         <button onClick={() => startEdit(q)} className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-all"><Edit3 size={16} /></button>
-                         <button onClick={() => onDelete(q._id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={16} /></button>
-                       </div>
-                     </div>
-                     <h3 className="text-sm font-bold text-slate-900 leading-relaxed mb-4 line-clamp-2" title={q?.questionText || ''}>{q?.questionText || 'Question text missing'}</h3>
-                     <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 border-t border-slate-50 pt-4">
-                        <Database size={12} />
-                        <span>{q.chapter}</span>
-                        <span className="ml-auto text-brand-orange font-black">Option {q.correctAnswer + 1}</span>
-                     </div>
-                   </motion.div>
-                 ))}
-               </div>
-
-               {filteredBySearch.length === 0 && (
-                 <div className="py-20 text-center bg-white rounded-[40px] border border-slate-100 border-dashed">
-                    <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-200 mx-auto mb-4"><Database size={32} /></div>
-                    <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No questions matched your search.</p>
-                 </div>
-               )}
-            </div>
+                      <button 
+                        type="button"
+                        onClick={resetForm}
+                        className="py-5 px-10 bg-slate-50 text-slate-500 rounded-[28px] font-bold hover:bg-slate-100 transition-all uppercase tracking-widest text-xs"
+                      >
+                         Discard
+                      </button>
+                   </div>
+                </form>
+             </div>
           </motion.div>
         ) : (
           <motion.div 
             key="bulk"
-            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-            className="space-y-8"
+            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
+            className="space-y-8 max-w-5xl mx-auto"
           >
              {!uploadedRawRows.length ? (
-               <div className="bg-white rounded-[40px] p-12 border border-slate-100 shadow-sm text-center max-w-4xl mx-auto transition-all">
-                  <div className="w-20 h-20 bg-orange-50 text-brand-orange rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner">
-                    <FileUp size={40} />
+               <div className="bg-white rounded-[50px] p-16 border border-slate-100 shadow-sm text-center transition-all">
+                  <div className="w-24 h-24 bg-orange-50 text-brand-orange rounded-[40px] flex items-center justify-center mx-auto mb-10">
+                    <FileUp size={48} strokeWidth={1.5} />
                   </div>
-                  <h2 className="text-2xl font-bold text-slate-900 mb-2">Bulk Repository Upload</h2>
-                  <p className="text-slate-500 mb-10 max-w-md mx-auto">Upload Excel or CSV files to batch import hundreds of questions instantly.</p>
+                  <h2 className="text-3xl font-black text-slate-900 mb-3 tracking-tight">Bulk Repository Upload</h2>
+                  <p className="text-slate-500 mb-12 max-w-md mx-auto font-medium">Overhaul your question bank by batch importing hundreds of records via Excel or CSV.</p>
                   
-                  <label className="inline-flex items-center gap-3 px-8 py-4 bg-slate-900 text-white rounded-2xl font-bold cursor-pointer hover:brightness-110 transition-all shadow-xl shadow-slate-200">
+                  <label className="inline-flex items-center gap-4 px-10 py-5 bg-slate-900 text-white rounded-[32px] font-black uppercase tracking-widest text-xs cursor-pointer hover:brightness-110 transition-all shadow-2xl shadow-slate-200">
                     <Download size={20} />
-                    <span>Select Data File</span>
+                    <span>Select Source File</span>
                     <input type="file" className="hidden" accept=".csv,.xlsx,.xls" onChange={e => onBulkFileChange(e.target.files?.[0] || null)} />
                   </label>
 
-                  <div className="mt-12 pt-12 border-t border-slate-50 grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
+                  <div className="mt-20 pt-16 border-t border-slate-50 grid grid-cols-1 md:grid-cols-2 gap-12 text-left">
                      <div className="space-y-4">
-                        <h4 className="font-bold text-slate-900 flex items-center gap-2"><CheckCircle2 size={18} className="text-emerald-500" /> Required Headers</h4>
-                        <p className="text-xs text-slate-500 leading-relaxed font-medium">Your file must include: questionText, option1-4, correctAnswer (0-3), classLevel, subject, chapter.</p>
+                        <div className="flex items-center gap-3">
+                          <CheckCircle2 size={24} className="text-emerald-500" />
+                          <h4 className="font-black uppercase tracking-widest text-xs text-slate-900">Required Headers</h4>
+                        </div>
+                        <p className="text-xs text-slate-400 leading-relaxed font-semibold">Column keys like 'questionText', 'option1-4', and 'correctAnswer' are mapped automatically upon initialization.</p>
                      </div>
                      <div className="space-y-4">
-                        <h4 className="font-bold text-slate-900 flex items-center gap-2"><AlertCircle size={18} className="text-brand-orange" /> Difficulty Tags</h4>
-                        <p className="text-xs text-slate-500 leading-relaxed font-medium">Use 'easy', 'medium', or 'hard'. Other tags will default to 'easy' during processing.</p>
+                        <div className="flex items-center gap-3">
+                          <AlertCircle size={24} className="text-brand-orange" />
+                          <h4 className="font-black uppercase tracking-widest text-xs text-slate-900">Parsing Logic</h4>
+                        </div>
+                        <p className="text-xs text-slate-400 leading-relaxed font-semibold">Row-level verification ensures only high-fidelity records enter the repository. Error logs provided post-scan.</p>
                      </div>
                   </div>
                </div>
              ) : bulkPreviewRows.length === 0 ? (
-                <div className="bg-white rounded-[40px] p-10 border border-slate-100 shadow-sm transition-all">
-                   <div className="flex items-center justify-between mb-10 pb-6 border-b border-slate-50">
+                <div className="bg-white rounded-[50px] p-12 border border-slate-100 shadow-sm transition-all">
+                   <div className="flex items-center justify-between mb-12 pb-8 border-b border-slate-50">
                       <div>
-                        <h2 className="text-2xl font-bold text-slate-900">Map Columns</h2>
-                        <p className="text-sm text-slate-500">Match your file headers to our question repository fields.</p>
+                        <h2 className="text-3xl font-black text-slate-900">Mapping Terminal</h2>
+                        <p className="text-sm font-medium text-slate-400 mt-1">Match source headers to internal repository fields.</p>
                       </div>
-                      <button onClick={() => setUploadedRawRows([])} className="text-xs font-black uppercase text-slate-400 hover:text-red-500 transition-colors">Cancel Upload</button>
+                      <button onClick={() => setUploadedRawRows([])} className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-red-500 transition-colors">Discard Batch</button>
                    </div>
 
-                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
                       {(Object.keys(mapping) as FieldKey[]).map(key => (
-                        <div key={key} className="space-y-1.5">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 capitalize">{key.replace(/([A-Z])/g, ' $1')}</label>
+                        <div key={key} className="space-y-2">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1 capitalize">{key.replace(/([A-Z])/g, ' $1')}</label>
                           <select 
                             value={mapping[key]}
                             onChange={e => setMapping(p => ({...p, [key]: e.target.value}))}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold text-sm text-slate-900 appearance-none focus:ring-4 focus:ring-orange-500/10 transition-all cursor-pointer"
+                            className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm text-slate-900 appearance-none focus:ring-4 focus:ring-orange-500/10 transition-all cursor-pointer"
                           >
-                            <option value="">Select Header...</option>
+                            <option value="">( Unmapped )</option>
                             {uploadedHeaders.map(h => <option key={h} value={h}>{h}</option>)}
                           </select>
                         </div>
@@ -549,43 +603,43 @@ export default function AdminQuestionBank() {
 
                    <button 
                     onClick={onPreviewBulk}
-                    className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-xl shadow-slate-200 hover:brightness-110 transition-all flex items-center justify-center gap-3"
+                    className="w-full py-5 bg-slate-900 text-white rounded-[32px] font-black uppercase tracking-widest text-xs shadow-2xl shadow-slate-200 hover:brightness-110 transition-all flex items-center justify-center gap-4"
                    >
-                     Initialize Preview
+                     Initialize Verification Scan
                      <ChevronRight size={18} />
                    </button>
                 </div>
              ) : (
                 <div className="space-y-6 transition-all">
-                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm">
-                      <div className="flex items-center gap-6">
+                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm">
+                      <div className="flex items-center gap-8">
                         <div>
-                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Rows</p>
-                          <p className="text-xl font-black text-slate-900">{bulkPreviewRows.length}</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Scan Size</p>
+                          <p className="text-3xl font-black text-slate-900">{bulkPreviewRows.length}</p>
                         </div>
-                        <div className="w-px h-8 bg-slate-100" />
+                        <div className="w-px h-10 bg-slate-100" />
                         <div>
-                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Ready</p>
-                          <p className="text-xl font-black text-emerald-500">{bulkPreviewRows.filter(r => r.errors.length === 0).length}</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Verified</p>
+                          <p className="text-3xl font-black text-emerald-500">{bulkPreviewRows.filter(r => r.errors.length === 0).length}</p>
                         </div>
-                        <div className="w-px h-8 bg-slate-100" />
-                        <div>
+                        <div className="w-px h-10 bg-slate-100 hidden sm:block" />
+                        <div className="hidden sm:block">
                           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Selected</p>
-                          <p className="text-xl font-black text-brand-orange">{selectedRowNos.length}</p>
+                          <p className="text-3xl font-black text-brand-orange">{selectedRowNos.length}</p>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-3">
                          <button 
                           onClick={toggleAllValid}
-                          className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-200 transition-all"
+                          className="px-8 py-4 bg-slate-50 text-slate-600 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-100 transition-all"
                          >
-                           {selectedRowNos.length > 0 ? 'Deselect All' : 'Select All Valid'}
+                           {selectedRowNos.length > 0 ? 'Deselect' : 'Select All'}
                          </button>
                          <button 
                           onClick={onUploadBulk}
                           disabled={isUploadingBulk || selectedRowNos.length === 0}
-                          className="px-8 py-3 bg-slate-900 text-white rounded-xl font-bold text-sm shadow-lg shadow-slate-200 hover:brightness-110 disabled:opacity-50 transition-all flex items-center gap-2"
+                          className="px-10 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-2xl shadow-slate-200 hover:brightness-110 disabled:opacity-50 transition-all flex items-center gap-3"
                          >
                            {isUploadingBulk ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Database size={16} />}
                            Execute Import
@@ -593,43 +647,43 @@ export default function AdminQuestionBank() {
                       </div>
                    </div>
 
-                   <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden">
+                   <div className="bg-white rounded-[50px] border border-slate-100 shadow-sm overflow-hidden">
                       <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                           <thead>
                             <tr className="bg-slate-50/50">
-                              <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">No.</th>
-                              <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Question Content</th>
-                              <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
-                              <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Action</th>
+                              <th className="px-10 py-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Record</th>
+                              <th className="px-10 py-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Question Abstract</th>
+                              <th className="px-10 py-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Integrity</th>
+                              <th className="px-10 py-6 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Commit</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-50">
                             {bulkPreviewRows.map(row => (
-                              <tr key={row.rowNo} className={row.errors.length > 0 ? 'bg-rose-50/30' : ''}>
-                                <td className="px-8 py-5 text-sm font-bold text-slate-400">#{row.rowNo}</td>
-                                <td className="px-8 py-5 max-w-md">
-                                   <div className="text-sm font-bold text-slate-700 line-clamp-1 mb-1">{row.questionText || <span className="text-rose-400 italic">Empty Source</span>}</div>
+                              <tr key={row.rowNo} className={row.errors.length > 0 ? 'bg-rose-50/30' : 'hover:bg-slate-50/30 transition-colors'}>
+                                <td className="px-10 py-6 text-sm font-bold text-slate-400 tracking-tighter">#{row.rowNo.toString().padStart(3, '0')}</td>
+                                <td className="px-10 py-6 max-w-md">
+                                   <div className="text-sm font-bold text-slate-800 line-clamp-1 mb-1.5">{row.questionText || <span className="text-rose-400 italic font-black text-[10px] uppercase">Data Loss Detected</span>}</div>
                                    {row.errors.length > 0 && (
-                                     <div className="flex flex-wrap gap-1">
+                                     <div className="flex flex-wrap gap-1.5">
                                        {row.errors.map((err, i) => (
-                                         <span key={i} className="px-1.5 py-0.5 bg-rose-100 text-[8px] font-black uppercase text-rose-600 rounded-md ring-1 ring-rose-200">{err}</span>
+                                         <span key={i} className="px-2 py-0.5 bg-rose-100 text-[8px] font-black uppercase text-rose-600 rounded-md">{err}</span>
                                        ))}
                                      </div>
                                    )}
                                 </td>
-                                <td className="px-8 py-5">
-                                   <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${row.errors.length === 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                                      {row.errors.length === 0 ? 'Verified' : 'Incomplete'}
+                                <td className="px-10 py-6">
+                                   <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${row.errors.length === 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                      {row.errors.length === 0 ? 'Verified' : 'Invalid'}
                                    </span>
                                 </td>
-                                <td className="px-8 py-5 text-right">
+                                <td className="px-10 py-6 text-right">
                                    <button 
                                     onClick={() => toggleRow(row.rowNo)}
                                     disabled={row.errors.length > 0}
-                                    className={`w-6 h-6 rounded-lg border flex items-center justify-center transition-all ${selectedRowNos.includes(row.rowNo) ? 'bg-slate-900 border-slate-900 text-white shadow-md' : 'border-slate-200 bg-white text-transparent disabled:opacity-30'}`}
+                                    className={`w-8 h-8 rounded-xl border flex items-center justify-center transition-all mx-auto mr-0 ${selectedRowNos.includes(row.rowNo) ? 'bg-slate-900 border-slate-900 text-white shadow-lg' : 'border-slate-200 bg-white text-transparent disabled:opacity-30'}`}
                                    >
-                                     <Check size={12} />
+                                     <Check size={14} strokeWidth={4} />
                                    </button>
                                 </td>
                               </tr>
@@ -641,9 +695,9 @@ export default function AdminQuestionBank() {
                    
                    <button 
                       onClick={() => setBulkPreviewRows([])}
-                      className="w-full py-4 text-slate-400 font-bold text-sm hover:text-slate-900 transition-colors"
+                      className="w-full py-8 text-slate-400 font-black uppercase tracking-widest text-[10px] hover:text-slate-900 transition-colors"
                    >
-                     Back to Mapping
+                     Back to Mapping Interface
                    </button>
                 </div>
              )}
@@ -653,6 +707,7 @@ export default function AdminQuestionBank() {
     </div>
   );
 }
+
 
 // --- REUSABLE MODERN COMPONENTS ---
 

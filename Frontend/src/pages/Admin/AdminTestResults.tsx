@@ -15,6 +15,7 @@ import {
   Award
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLocation } from 'react-router-dom';
 
 interface Test {
   _id: string;
@@ -50,8 +51,17 @@ export default function AdminTestResults() {
 
   const classes = ['6', '7', '8', '9', '10', '11', '12'];
 
+  const location = useLocation();
+
   useEffect(() => {
-    fetchTests();
+    const handleMount = async () => {
+      await fetchTests();
+      const stateId = (location.state as any)?.selectedTestId;
+      if (stateId) {
+        fetchLeaderboard(stateId);
+      }
+    };
+    handleMount();
   }, [selectedClass]);
 
   const fetchTests = async () => {

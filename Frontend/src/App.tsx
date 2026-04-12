@@ -2,7 +2,7 @@ import { Routes, Route, Link, NavLink, useLocation, matchPath } from 'react-rout
 import { lazy, Suspense, useEffect, useState } from 'react';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './context/AuthContext';
-import { Menu, UserCircle, LogOut, ChevronDown, LogIn, UserPlus, LayoutDashboard, ClipboardList, BarChart3 } from 'lucide-react';
+import { Menu, UserCircle, LogOut, ChevronDown, LogIn, UserPlus, LayoutDashboard, ClipboardList, BarChart3, Home as HomeIcon } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 
 const Home = lazy(() => import('./pages/Home'));
@@ -136,32 +136,35 @@ function App() {
             </>
           ) : (
             <div className="flex items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={() => setIsMobileNavOpen((v) => !v)}
-                className="md:hidden h-11 w-11 inline-flex items-center justify-center border border-slate-200 shadow-sm bg-white rounded-xl text-slate-800"
-                aria-label="Open menu"
-              >
-                <Menu size={20} />
-              </button>
-
-              <Link
-                to="/"
-                className="flex items-center gap-3 group md:flex-1 md:justify-start justify-center"
-              >
-                <div className="w-8 h-8 md:w-10 md:h-10 bg-brand-orange border border-orange-700/15 shadow-sm flex items-center justify-center font-bold text-lg md:text-xl text-white transition-transform group-hover:-translate-y-0.5 rounded-xl">
-                  R
-                </div>
-                <span className="font-semibold text-xl md:text-2xl tracking-tight text-slate-900 hidden sm:block">
-                  Art Temple
-                </span>
-              </Link>
+              <div className="flex items-center gap-3">
+                {user && location.pathname === '/' && (
+                  <Link
+                    to={user.role === 'admin' ? '/admin' : '/dashboard'}
+                    className="w-10 h-10 inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm text-brand-orange"
+                  >
+                    <HomeIcon size={18} />
+                  </Link>
+                )}
+                <Link
+                  to={user ? (user.role === 'admin' ? '/admin' : '/dashboard') : '/'}
+                  className="flex min-w-0 items-center justify-center gap-2 group"
+                >
+                  <div className="h-9 w-9 shrink-0 rounded-xl bg-brand-orange border border-orange-700/15 shadow-sm flex items-center justify-center font-bold text-base text-white transition-transform group-hover:-translate-y-0.5">
+                    R
+                  </div>
+                </Link>
+              </div>
 
               <div className="flex items-center gap-3 md:gap-6">
                 <div className="hidden md:flex gap-6 text-sm font-medium text-slate-600">
-                  <Link to="/" className="hover:text-brand-orange transition-colors">
-                    Platform
-                  </Link>
+                  {user && location.pathname === '/' && (
+                    <Link 
+                      to={user.role === 'admin' ? '/admin' : '/dashboard'} 
+                      className="w-10 h-10 inline-flex items-center justify-center rounded-xl bg-slate-100 border border-slate-200 text-brand-orange hover:bg-slate-900 hover:text-white transition-all shadow-sm"
+                    >
+                      <HomeIcon size={18} />
+                    </Link>
+                  )}
                   {user && (
                     <NavLink
                       to={user.role === 'admin' ? '/admin' : '/dashboard'}

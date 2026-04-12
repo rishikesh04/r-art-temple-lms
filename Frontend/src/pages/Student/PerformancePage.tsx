@@ -190,12 +190,6 @@ export default function PerformancePage() {
             <p className="text-slate-500 font-medium max-w-sm mx-auto leading-relaxed">
               Complete your first test to unlock dynamic charts, streak tracking, and interactive performance insights.
             </p>
-            <Link 
-              to="/tests" 
-              className="mt-8 inline-flex items-center gap-2 px-6 py-3 bg-[#ff5722] text-white rounded-2xl font-bold hover:shadow-lg hover:shadow-[#ff5722]/20 transition-all active:scale-95"
-            >
-              Take a Test <ArrowRight size={18} />
-            </Link>
           </div>
         </div>
       </div>

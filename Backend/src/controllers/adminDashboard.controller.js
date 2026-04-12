@@ -78,7 +78,7 @@ export const getAdminDashboard = async (req, res) => {
 
     // 4. Recent Students
     const recentStudents = await User.find({ role: 'student' })
-      .select('name email classLevel status createdAt')
+      .select('name email phone classLevel status createdAt')
       .sort({ createdAt: -1 })
       .limit(5)
       .lean();
@@ -106,6 +106,7 @@ export const getAdminDashboard = async (req, res) => {
           id: s._id,
           name: s.name,
           email: s.email,
+          phone: s.phone,
           classLevel: s.classLevel,
           status: s.status,
           createdAt: s.createdAt

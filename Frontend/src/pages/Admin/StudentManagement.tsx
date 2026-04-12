@@ -196,72 +196,65 @@ export default function StudentManagement() {
             {filteredStudents.map((student, i) => (
               <motion.div 
                 layout
-                initial={{ opacity: 0, scale: 0.9 }} 
+                initial={{ opacity: 0, scale: 0.95 }} 
                 animate={{ opacity: 1, scale: 1 }} 
-                exit={{ opacity: 0, scale: 0.9 }}
+                exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 0.2 }}
                 key={student._id} 
-                className="group bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 flex flex-col relative"
+                className="group bg-white p-4 lg:p-5 rounded-[28px] border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 relative flex flex-col"
               >
                 {/* Status Badge */}
-                <div className={`absolute top-6 right-6 inline-flex px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest
-                  ${student.status === 'approved' ? 'bg-emerald-50 text-emerald-600' : 
-                    student.status === 'pending' ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-rose-600'}`}
-                >
-                  {student.status}
+                <div className="absolute top-4 right-4 z-10">
+                  <span className={`px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-widest
+                    ${student.status === 'approved' ? 'bg-emerald-50 text-emerald-600' : 
+                      student.status === 'pending' ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-rose-600'}`}
+                  >
+                    {student.status}
+                  </span>
                 </div>
 
-                <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 mb-6 group-hover:bg-brand-orange group-hover:text-white transition-colors duration-300">
-                  <span className="text-xl font-bold">{student.name?.charAt(0) || '?'}</span>
-                </div>
-
-                <h3 className="text-xl font-bold text-slate-900 mb-1 truncate" title={student?.name || ''}>{student?.name || 'Unknown Student'}</h3>
-                <div className="flex items-center gap-2 mb-6">
-                   <span className="px-2.5 py-1 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg">
-                    Level {student.classLevel}
-                   </span>
-                   {student.status === 'pending' && (
-                     <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-lg">Waiting Approval</span>
-                   )}
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 shrink-0 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-brand-orange/10 group-hover:text-brand-orange transition-colors">
+                    <span className="text-base font-bold">{student.name?.charAt(0) || '?'}</span>
+                  </div>
+                  <div className="min-w-0 pr-12">
+                    <h3 className="text-base font-bold text-slate-900 truncate leading-tight" title={student?.name || ''}>
+                      {student?.name || 'Unknown'}
+                    </h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Class {student.classLevel}</span>
+                    </div>
+                  </div>
                 </div>
                 
-                <div className="space-y-3 mb-8">
-                  <div className="flex items-center gap-3 text-slate-500 group-hover:text-slate-900 transition-colors">
-                    <Mail size={16} className="shrink-0" />
-                    <span className="text-sm font-medium truncate">{student.email}</span>
+                <div className="space-y-1.5 mb-4 border-t border-slate-50 pt-4">
+                  <div className="flex items-center gap-2 text-slate-400 group-hover:text-slate-600 transition-colors overflow-hidden">
+                    <Mail size={10} className="shrink-0" />
+                    <span className="text-[10px] font-semibold truncate uppercase tracking-tight">{student.email}</span>
                   </div>
-                  <div className="flex items-center gap-3 text-slate-500 group-hover:text-slate-900 transition-colors">
-                    <Phone size={16} className="shrink-0" />
-                    <span className="text-sm font-medium">{student.phone}</span>
+                  <div className="flex items-center gap-2 text-slate-400 group-hover:text-slate-600 transition-colors">
+                    <Phone size={10} className="shrink-0" />
+                    <span className="text-[10px] font-semibold uppercase tracking-tight">{student.phone || 'No phone'}</span>
                   </div>
                 </div>
 
                 {/* Actions */}
-                <div className="mt-auto pt-6 border-t border-slate-50 flex items-center gap-2">
-                  {activeTab === 'pending' ? (
-                    <>
-                      <button 
-                        onClick={() => handleAction(student._id, 'approve')}
-                        className="flex-1 flex items-center justify-center gap-2 py-3 bg-slate-900 text-white rounded-2xl font-bold text-xs shadow-lg shadow-slate-200 hover:brightness-110 transition-all"
-                      >
-                        <UserCheck size={14} /> Allow Access
-                      </button>
-                      <button 
-                        onClick={() => handleAction(student._id, 'reject')}
-                        className="p-3 bg-rose-50 text-rose-600 rounded-2xl hover:bg-rose-100 transition-colors"
-                        title="Deny Access"
-                      >
-                        <UserMinus size={20} />
-                      </button>
-                    </>
-                  ) : (
+                {activeTab === 'pending' && (
+                  <div className="pt-3 border-t border-slate-50 flex items-center gap-2">
                     <button 
-                      className="w-full py-3 bg-slate-50 text-slate-400 rounded-2xl font-bold text-xs cursor-default flex items-center justify-center gap-2"
+                      onClick={() => handleAction(student._id, 'approve')}
+                      className="flex-1 flex items-center justify-center gap-2 py-2 bg-slate-900 text-white rounded-lg font-bold text-[9px] shadow-lg shadow-slate-200 hover:brightness-110 transition-all uppercase tracking-widest"
                     >
-                      <CheckCircle size={14} /> Registered Member
+                      <UserCheck size={10} /> Approve
                     </button>
-                  )}
-                </div>
+                    <button 
+                      onClick={() => handleAction(student._id, 'reject')}
+                      className="w-8 h-8 shrink-0 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 transition-colors flex items-center justify-center"
+                    >
+                      <UserMinus size={14} />
+                    </button>
+                  </div>
+                )}
               </motion.div>
             ))}
           </AnimatePresence>
