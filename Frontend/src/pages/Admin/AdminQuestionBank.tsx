@@ -101,7 +101,8 @@ export default function AdminQuestionBank() {
   const [filterClass, setFilterClass] = useState('');
   const [filterSubject, setFilterSubject] = useState('');
   const [filterDifficulty, setFilterDifficulty] = useState('');
-  
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [selectedQuestion, setSelectedQuestion] = useState<QuestionItem | null>(null);
   const [bulkRows, setBulkRows] = useState<QuestionForm[]>([]);
   const [bulkPreviewRows, setBulkPreviewRows] = useState<BulkPreviewRow[]>([]);
   const [bulkErrors, setBulkErrors] = useState<string[]>([]);
@@ -405,19 +406,49 @@ export default function AdminQuestionBank() {
                   className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-[28px] focus:ring-4 focus:ring-orange-500/10 focus:border-brand-orange transition-all font-medium"
                 />
               </div>
-              <div className="md:col-span-6 lg:col-span-2 flex gap-2">
-                <select 
-                  value={filterClass} onChange={e => setFilterClass(e.target.value)} 
-                  className="flex-1 px-4 py-4 bg-white border border-slate-200 rounded-[28px] font-bold text-sm text-slate-600 appearance-none focus:outline-none focus:border-brand-orange"
+              <div className="md:col-span-12 lg:col-span-4 relative">
+                <div 
+                  onClick={() => setIsFilterOpen(!isFilterOpen)}
+                  className={`flex items-center justify-between px-6 py-4 bg-white border rounded-[28px] cursor-pointer transition-all ${filterClass ? 'border-brand-orange bg-orange-50/30' : 'border-slate-200 hover:border-slate-300'}`}
                 >
-                  <option value="">All Classes</option>
-                  {['6','7','8','9','10','11','12'].map(c => <option key={c} value={c}>Class {c}</option>)}
-                </select>
-              </div>
-              <div className="md:col-span-6 lg:col-span-2 flex gap-2">
-                 <button onClick={loadQuestions} className="flex-1 bg-slate-900 text-white rounded-[28px] font-bold text-sm shadow-lg shadow-slate-200 hover:brightness-110 flex items-center justify-center gap-2">
-                   <Filter size={18} /> Apply
-                 </button>
+                  <div className="flex items-center gap-3">
+                    <Filter size={18} className={filterClass ? 'text-brand-orange' : 'text-slate-400'} />
+                    <span className={`text-sm font-bold ${filterClass ? 'text-brand-orange' : 'text-slate-500'}`}>
+                      {filterClass ? `Class ${filterClass}` : 'All Classes'}
+                    </span>
+                  </div>
+                  <ChevronDown size={18} className={`text-slate-400 transition-transform duration-300 ${isFilterOpen ? 'rotate-180' : ''}`} />
+                </div>
+
+                <AnimatePresence>
+                  {isFilterOpen && (
+                    <>
+                      <div className="fixed inset-0 z-20" onClick={() => setIsFilterOpen(false)} />
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        className="absolute left-0 right-0 mt-2 bg-white border border-slate-100 rounded-[28px] shadow-2xl p-2 z-30 grid grid-cols-2 gap-1"
+                      >
+                        <button 
+                          onClick={() => { setFilterClass(''); setIsFilterOpen(false); }}
+                          className={`col-span-2 px-4 py-3 text-left rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${!filterClass ? 'bg-slate-900 text-white' : 'hover:bg-slate-50 text-slate-500'}`}
+                        >
+                          All Classes
+                        </button>
+                        {['6','7','8','9','10'].map(c => (
+                          <button 
+                            key={c}
+                            onClick={() => { setFilterClass(c); setIsFilterOpen(false); }}
+                            className={`px-4 py-3 text-left rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${filterClass === c ? 'bg-brand-orange text-white' : 'hover:bg-slate-50 text-slate-500'}`}
+                          >
+                            Class {c}
+                          </button>
+                        ))}
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
 
@@ -438,34 +469,35 @@ export default function AdminQuestionBank() {
                   <motion.div 
                     initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
                     key={q._id} 
-                    className="bg-white p-6 rounded-[40px] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 transition-all group relative overflow-hidden"
+                    onClick={() => setSelectedQuestion(q)}
+                    className="bg-white p-5 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-slate-200/40 transition-all group relative overflow-hidden cursor-pointer"
                   >
-                    <div className="flex justify-between items-start mb-6">
-                      <div className="flex flex-wrap gap-2">
-                        <span className={`px-3 py-1 text-[8px] font-black uppercase tracking-widest rounded-lg ${q.difficulty === 'hard' ? 'bg-rose-50 text-rose-600' : q.difficulty === 'medium' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex flex-wrap gap-1.5">
+                        <span className={`px-2 py-0.5 text-[7px] font-black uppercase tracking-widest rounded-md ${q.difficulty === 'hard' ? 'bg-rose-50 text-rose-600' : q.difficulty === 'medium' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
                           {q.difficulty}
                         </span>
-                        <span className="px-3 py-1 bg-slate-50 text-slate-500 text-[8px] font-black uppercase tracking-widest rounded-lg">{q.subject}</span>
-                        <span className="px-3 py-1 bg-orange-50 text-brand-orange text-[8px] font-black uppercase tracking-widest rounded-lg">Class {q.classLevel}</span>
+                        <span className="px-2 py-0.5 bg-slate-50 text-slate-500 text-[7px] font-black uppercase tracking-widest rounded-md">{q.subject}</span>
+                        <span className="px-2 py-0.5 bg-orange-50 text-brand-orange text-[7px] font-black uppercase tracking-widest rounded-md">Class {q.classLevel}</span>
                       </div>
-                      <div className="flex gap-1.5">
-                        <button onClick={() => startEdit(q)} className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-all"><Edit3 size={16} /></button>
-                        <button onClick={() => onDelete(q._id)} className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 size={16} /></button>
+                      <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => startEdit(q)} className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-all"><Edit3 size={14} /></button>
+                        <button onClick={() => onDelete(q._id)} className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={14} /></button>
                       </div>
                     </div>
                     
-                    <h3 className="text-base font-bold text-slate-900 leading-relaxed mb-6 line-clamp-3 min-h-[4.5rem]" title={q?.questionText || ''}>
+                    <h3 className="text-sm font-bold text-slate-800 leading-snug mb-4 line-clamp-2" title={q?.questionText || ''}>
                       {q?.questionText || 'Corrupted Record'}
                     </h3>
 
-                    <div className="pt-6 border-t border-slate-50 flex items-center gap-3">
-                       <div className="w-8 h-8 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400">
-                          <Database size={14} />
+                    <div className="pt-4 border-t border-slate-50 flex items-center justify-between gap-3">
+                       <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-6 h-6 bg-slate-50 rounded flex items-center justify-center text-slate-300">
+                             <Database size={12} />
+                          </div>
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 truncate">{q.chapter || 'UNCATEGORIZED'}</p>
                        </div>
-                       <div className="flex-1 min-w-0">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 truncate">{q.chapter}</p>
-                       </div>
-                       <div className="px-3 py-1 bg-slate-900 text-white text-[8px] font-black uppercase tracking-widest rounded-lg">
+                       <div className="px-2.5 py-1 bg-slate-900 text-white text-[8px] font-black uppercase tracking-widest rounded-lg shrink-0">
                           Opt {q.correctAnswer + 1}
                        </div>
                     </div>
@@ -508,7 +540,7 @@ export default function AdminQuestionBank() {
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <Select label="Correct Ans" value={String(form.correctAnswer)} onChange={v => setForm(p => ({...p, correctAnswer: Number(v)}))} options={['0','1','2','3']} labels={['Opt 1','Opt 2','Opt 3','Opt 4']} />
                         <Select label="Difficulty" value={form.difficulty} onChange={v => setForm(p => ({...p, difficulty: v as any}))} options={['easy','medium','hard']} />
-                        <Select label="Class" value={form.classLevel} onChange={v => setForm(p => ({...p, classLevel: v}))} options={['6','7','8','9','10','11','12']} />
+                        <Select label="Class" value={form.classLevel} onChange={v => setForm(p => ({...p, classLevel: v}))} options={['6','7','8','9','10']} />
                         <Select label="Subject" value={form.subject} onChange={v => setForm(p => ({...p, subject: v as any}))} options={['Math','Science']} />
                       </div>
                       
@@ -702,6 +734,96 @@ export default function AdminQuestionBank() {
                 </div>
              )}
           </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {selectedQuestion && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setSelectedQuestion(null)}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-md" 
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-2xl bg-white rounded-[40px] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col font-outfit"
+            >
+              {/* Modal Header */}
+              <div className="p-8 pb-0 flex justify-between items-start">
+                <div className="flex flex-wrap gap-2">
+                  <span className={`px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-lg ${selectedQuestion.difficulty === 'hard' ? 'bg-rose-50 text-rose-600' : selectedQuestion.difficulty === 'medium' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                    {selectedQuestion.difficulty}
+                  </span>
+                  <span className="px-3 py-1 bg-slate-50 text-slate-500 text-[9px] font-black uppercase tracking-widest rounded-lg">{selectedQuestion.subject}</span>
+                  <span className="px-3 py-1 bg-orange-50 text-brand-orange text-[9px] font-black uppercase tracking-widest rounded-lg">Class {selectedQuestion.classLevel}</span>
+                </div>
+                <button 
+                  onClick={() => setSelectedQuestion(null)}
+                  className="p-2 bg-slate-50 rounded-2xl text-slate-400 hover:text-slate-900 transition-all"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Scrollable Content */}
+              <div className="p-8 pt-6 overflow-y-auto space-y-8 custom-scrollbar">
+                <div className="space-y-4">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Question Content</p>
+                  <h2 className="text-xl font-bold text-slate-900 leading-relaxed">
+                    {selectedQuestion.questionText}
+                  </h2>
+                </div>
+
+                <div className="space-y-4">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Multiple Choice Options</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {selectedQuestion.options.map((opt, idx) => (
+                      <div 
+                        key={idx}
+                        className={`p-4 rounded-2xl border-2 transition-all flex items-center gap-3 ${idx === selectedQuestion.correctAnswer ? 'border-emerald-500 bg-emerald-50/50' : 'border-slate-50 bg-slate-50/30'}`}
+                      >
+                        <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black ${idx === selectedQuestion.correctAnswer ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                          {String.fromCharCode(65 + idx)}
+                        </div>
+                        <span className={`text-sm font-bold ${idx === selectedQuestion.correctAnswer ? 'text-emerald-700' : 'text-slate-600'}`}>
+                          {opt}
+                        </span>
+                        {idx === selectedQuestion.correctAnswer && <Check size={16} className="ml-auto text-emerald-500" />}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {selectedQuestion.explanation && (
+                  <div className="space-y-4 p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-brand-orange group flex items-center gap-2">
+                       <BookOpen size={14} /> Solution / Explanation
+                    </p>
+                    <p className="text-sm font-medium text-slate-600 leading-relaxed italic">
+                      {selectedQuestion.explanation}
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3 pt-4 opacity-60">
+                  <Database size={16} className="text-slate-400" />
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Topic: {selectedQuestion.chapter}</p>
+                </div>
+              </div>
+
+              {/* Footer Actions */}
+              <div className="p-8 pt-0 mt-auto">
+                 <button 
+                  onClick={() => { startEdit(selectedQuestion); setSelectedQuestion(null); }}
+                  className="w-full py-4 bg-slate-900 text-white rounded-[28px] font-bold text-sm shadow-xl shadow-slate-200 hover:brightness-110 flex items-center justify-center gap-2 transition-all"
+                 >
+                   <Edit3 size={16} /> Edit Question Entry
+                 </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>
