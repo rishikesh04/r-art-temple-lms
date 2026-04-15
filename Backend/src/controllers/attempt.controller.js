@@ -8,6 +8,7 @@ export const submitTest = async (req, res) => {
   try {
     const { testId } = req.params;
     const { answers = [], timeTaken = 0 } = req.body;
+    const submitGraceMs = Number(process.env.ATTEMPT_SUBMIT_GRACE_MS || 15000);
 
     //  Only students can submit tests
     if (req.user.role !== 'student') {
@@ -72,7 +73,9 @@ export const submitTest = async (req, res) => {
       });
     }
 
-    if (now > new Date(test.endTime)) {
+    const endAtMs = new Date(test.endTime).getTime();
+    const effectiveGraceMs = Number.isFinite(submitGraceMs) ? Math.max(0, submitGraceMs) : 15000;
+    if (Number.isFinite(endAtMs) && now.getTime() > endAtMs + effectiveGraceMs) {
       return res.status(403).json({
         success: false,
         message: 'This test has already ended',

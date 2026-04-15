@@ -69,6 +69,7 @@ export default function AttemptTestPage() {
   const [isSubmitReviewOpen, setIsSubmitReviewOpen] = useState(false);
   const draftKey = useMemo(() => (id ? `attemptDraft:${id}` : null), [id]);
   const hasRestoredRef = useRef(false);
+  const autoSubmittedRef = useRef(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['test', id],
@@ -87,6 +88,7 @@ export default function AttemptTestPage() {
 
   useEffect(() => {
     hasRestoredRef.current = false;
+    autoSubmittedRef.current = false;
     setIsTimerReady(false);
     setRemaining(null);
     setAnswers({});
@@ -158,11 +160,22 @@ export default function AttemptTestPage() {
 
   useEffect(() => {
     if (!test || !isTimerReady) return;
+    const getRemainingSeconds = () => {
+      const nowMs = Date.now();
+      const byDuration = Math.max(0, totalAllowedSeconds - Math.floor((nowMs - startedAtRef.current) / 1000));
+      const endMs = new Date(test.endTime).getTime();
+      const byEndTime = Number.isFinite(endMs)
+        ? Math.max(0, Math.floor((endMs - nowMs) / 1000))
+        : byDuration;
+      return Math.min(byDuration, byEndTime);
+    };
+
+    setRemaining(getRemainingSeconds());
     const timer = window.setInterval(() => {
-      setRemaining((prev) => (prev === null || isNaN(prev) ? null : Math.max(0, prev - 1)));
+      setRemaining(getRemainingSeconds());
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [test?._id, isTimerReady]);
+  }, [test?._id, test?.endTime, isTimerReady, totalAllowedSeconds]);
 
   useEffect(() => {
     if (!test) return;
@@ -259,8 +272,10 @@ export default function AttemptTestPage() {
 
   useEffect(() => {
     if (!test || !isTimerReady) return;
-    if (remaining !== 0) return;
+    if (remaining === null || remaining > 0) return;
     if (submitMutation.isPending || submitMutation.isSuccess) return;
+    if (autoSubmittedRef.current) return;
+    autoSubmittedRef.current = true;
     submitNow();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remaining, isTimerReady]);

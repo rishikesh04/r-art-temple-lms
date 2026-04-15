@@ -152,6 +152,19 @@ export default function AdminTestsManager() {
     });
   };
 
+  const handleDurationChange = (v: string) => {
+    const mins = Number(v);
+    setForm(p => {
+      const updated = { ...p, duration: mins };
+      if (updated.startTime && Number.isFinite(mins) && mins > 0) {
+        const d = new Date(updated.startTime);
+        d.setMinutes(d.getMinutes() + mins);
+        updated.endTime = toDateTimeLocal(d.toISOString());
+      }
+      return updated;
+    });
+  };
+
   const startCreate = () => {
     setForm(INITIAL_FORM);
     setEditId(null);
@@ -192,10 +205,27 @@ export default function AdminTestsManager() {
 
   const onCreateTest = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (!form.startTime || !form.endTime) {
+      setError('Please choose both launch and expiry time.');
+      return;
+    }
+    if (new Date(form.endTime).getTime() <= new Date(form.startTime).getTime()) {
+      setError('Expiry Window must be greater than Launch Window.');
+      return;
+    }
+    if (form.questions.length === 0) {
+      setError('Select at least one question to create a test.');
+      return;
+    }
+
     setIsCreating(true);
     try {
       const payload = {
         ...form,
+        totalMarks: form.questions.length,
         startTime: new Date(form.startTime).toISOString(),
         endTime: new Date(form.endTime).toISOString(),
       };
@@ -210,7 +240,7 @@ export default function AdminTestsManager() {
       setView('list');
       await loadData();
     } catch (err) {
-      setError('Operation failed.');
+      setError(getApiMessage(err, 'Operation failed.'));
     } finally {
       setIsCreating(false);
     }
@@ -278,6 +308,17 @@ export default function AdminTestsManager() {
           </div>
         )}
       </section>
+
+      {error ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+          {error}
+        </div>
+      ) : null}
+      {success ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+          {success}
+        </div>
+      ) : null}
 
       <AnimatePresence mode="wait">
         {view === 'list' ? (
@@ -429,7 +470,7 @@ export default function AdminTestsManager() {
                         <Select label="Target Class" value={form.classLevel} options={['6','7','8','9','10']} onChange={v => setForm(p => ({...p, classLevel: v, questions: []}))} />
                         <Select label="Domain" value={form.subject} options={['Math','Science']} onChange={v => setForm(p => ({...p, subject: v, questions: []}))} />
                         <Select label="Status" value={form.status} options={['draft','published']} onChange={v => setForm(p => ({...p, status: v as any}))} />
-                        <Input label="Duration (min)" type="number" value={String(form.duration)} onChange={v => setForm(p => ({...p, duration: Number(v)}))} required />
+                        <Input label="Duration (min)" type="number" value={String(form.duration)} onChange={handleDurationChange} required min={1} />
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
