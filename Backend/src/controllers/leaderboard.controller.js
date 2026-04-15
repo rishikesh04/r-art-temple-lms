@@ -45,8 +45,8 @@ export const getTestLeaderboard = async (req, res) => {
         message: 'Leaderboard will be available after the test ends.',
       });
     }
-    //  Get all attempts for this test
-    const attempts = await Attempt.find({ test: testId })
+    //  Get all attempts for this test (ONLY first attempt for leaderboard)
+    const attempts = await Attempt.find({ test: testId, attemptNumber: 1 })
       .populate('student', 'name classLevel')
       .sort({
         score: -1,       // Higher score first

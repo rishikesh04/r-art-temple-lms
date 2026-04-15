@@ -5,6 +5,7 @@ import {
   getTestById,
   updateTest,
   deleteTest,
+  getTestsStructure,
 } from '../controllers/test.controller.js';
 
 
@@ -24,6 +25,7 @@ router.patch('/:id', protect, isAdmin, validateParams(mongoIdParamSchema), valid
 router.delete('/:id', protect, isAdmin, validateParams(mongoIdParamSchema), deleteTest);
 
 // Protected routes for viewing tests (Accessible by Admin and approved Students)
+router.get('/structure', protect, getTestsStructure);
 router.get('/', protect, getAllTests);
 router.get('/:id', protect, validateParams(mongoIdParamSchema), getTestById);
 

@@ -17,6 +17,7 @@ export const createTest = async (req, res) => {
       startTime,
       endTime,
       status,
+      testType,
     } = req.body;
 
     const newTest = await Test.create({
@@ -31,6 +32,7 @@ export const createTest = async (req, res) => {
       startTime,
       endTime,
       status,
+      testType,
       createdBy: req.user._id,
     });
 
@@ -63,6 +65,7 @@ export const getAllTests = async (req, res) => {
       if (subject) filter.subject = subject;
       if (chapter) filter.chapter = chapter;
       if (status) filter.status = status;
+      if (req.query.testType) filter.testType = req.query.testType;
     } else {
       // Student should only see tests for their own class
       filter.classLevel = req.user.classLevel;
@@ -73,6 +76,7 @@ export const getAllTests = async (req, res) => {
       // Optional filters for student
       if (subject) filter.subject = subject;
       if (chapter) filter.chapter = chapter;
+      if (req.query.testType) filter.testType = req.query.testType;
     }
 
     const tests = await Test.find(filter).sort({ createdAt: -1 });
@@ -192,6 +196,58 @@ export const deleteTest = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error deleting test',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get tests grouped by structure for student dashboard
+// @route   GET /api/tests/structure
+// @access  Private
+export const getTestsStructure = async (req, res) => {
+  try {
+    const { classLevel, subject } = req.query;
+
+    const filter = {
+      status: 'published',
+    };
+
+    if (req.user.role !== 'admin') {
+      filter.classLevel = req.user.classLevel;
+    } else if (classLevel) {
+      filter.classLevel = classLevel;
+    }
+
+    if (subject) {
+      filter.subject = subject;
+    }
+
+    const tests = await Test.find(filter)
+      .select('title classLevel subject chapter testType duration totalMarks startTime endTime createdAt')
+      .lean();
+
+    // Grouping by Subject -> Chapter -> Type
+    const structure = {};
+
+    tests.forEach((test) => {
+      const subj = test.subject || 'Uncategorized';
+      const chap = test.chapter || 'Full Syllabus';
+      const type = test.testType || 'live';
+
+      if (!structure[subj]) structure[subj] = {};
+      if (!structure[subj][chap]) structure[subj][chap] = { live: [], practice: [] };
+
+      structure[subj][chap][type].push(test);
+    });
+
+    res.status(200).json({
+      success: true,
+      structure,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching test structure',
       error: error.message,
     });
   }

@@ -28,8 +28,8 @@ export const getStudentOverview = async (req, res) => {
       status: 'published',
     });
 
-    // Fetch all attempts for stats calculation
-    const allAttempts = await Attempt.find({ student: req.user._id }).lean();
+    // Fetch all 1st attempts for global stats calculation to maintain integrity
+    const allAttempts = await Attempt.find({ student: req.user._id, attemptNumber: 1 }).lean();
 
     const totalAttempts = allAttempts.length;
 

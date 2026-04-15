@@ -45,14 +45,18 @@ const attemptSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    attemptNumber: {
+      type: Number,
+      default: 1,
+    },
   },
   {
     timestamps: true,
   }
 );
 
-// Prevent duplicate attempts at DB level
-attemptSchema.index({ student: 1, test: 1 }, { unique: true });
+// Prevent duplicate attempts for the same attemptNumber
+attemptSchema.index({ student: 1, test: 1, attemptNumber: 1 }, { unique: true });
 attemptSchema.index({ student: 1, createdAt: -1 });
 attemptSchema.index({ test: 1, createdAt: -1 });
 

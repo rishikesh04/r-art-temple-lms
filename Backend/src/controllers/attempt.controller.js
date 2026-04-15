@@ -50,20 +50,24 @@ export const submitTest = async (req, res) => {
       });
     }
 
-    // Prevent multiple submission 
-    const existingAttempt = await Attempt.findOne({
+    // Check and handle attempts based on test type
+    const latestAttempt = await Attempt.findOne({
       student: req.user._id,
       test: testId,
-    });
+    }).sort({ attemptNumber: -1 });
 
-    if (existingAttempt) {
+    const isLive = test.testType === 'live';
+    
+    if (isLive && latestAttempt) {
       return res.status(400).json({
         success: false,
         message: 'You have already submitted this test',
       });
     }
 
-    // Check test timing
+    const nextAttemptNumber = latestAttempt ? latestAttempt.attemptNumber + 1 : 1;
+
+    // Check test timing (ignore end time for practice tests)
     const now = new Date();
 
     if (now < new Date(test.startTime)) {
@@ -73,13 +77,15 @@ export const submitTest = async (req, res) => {
       });
     }
 
-    const endAtMs = new Date(test.endTime).getTime();
-    const effectiveGraceMs = Number.isFinite(submitGraceMs) ? Math.max(0, submitGraceMs) : 15000;
-    if (Number.isFinite(endAtMs) && now.getTime() > endAtMs + effectiveGraceMs) {
-      return res.status(403).json({
-        success: false,
-        message: 'This test has already ended',
-      });
+    if (isLive) {
+      const endAtMs = new Date(test.endTime).getTime();
+      const effectiveGraceMs = Number.isFinite(submitGraceMs) ? Math.max(0, submitGraceMs) : 15000;
+      if (Number.isFinite(endAtMs) && now.getTime() > endAtMs + effectiveGraceMs) {
+        return res.status(403).json({
+          success: false,
+          message: 'This test has already ended',
+        });
+      }
     }
 
 
@@ -146,14 +152,17 @@ export const submitTest = async (req, res) => {
       score: calculatedScore,
       totalQuestions: test.questions.length,
       timeTaken: Number(timeTaken) || 0,
+      attemptNumber: nextAttemptNumber,
     });
 
 
-    //Do NOT reveal score immediately
+    const msg = isLive 
+      ? 'Test submitted successfully. Result will be available after the test ends.'
+      : 'Practice test submitted successfully. Result is available now.';
+
     return res.status(201).json({
       success: true,
-      message:
-        'Test submitted successfully. Result will be available after the test ends.',
+      message: msg,
       attempt: {
         id: attempt._id,
         submittedAt: attempt.createdAt,
@@ -191,15 +200,16 @@ export const getMyAttempts = async (req, res) => {
       .populate('test', 'title subject classLevel totalMarks')
       .sort({ createdAt: -1 });
 
-    
     const formattedAttempts = attempts.map((attempt) => {
+      const isPractice = attempt.test && attempt.test.testType === 'practice';
       const isResultAvailable =
-        attempt.test && new Date() > new Date(attempt.test.endTime);
+        isPractice || (attempt.test && new Date() > new Date(attempt.test.endTime));
 
       return {
         id: attempt._id,
         test: attempt.test,
         submittedAt: attempt.createdAt,
+        attemptNumber: attempt.attemptNumber,
         resultAvailable: isResultAvailable,
         score: isResultAvailable ? attempt.score : null,
         totalQuestions: isResultAvailable ? attempt.totalQuestions : null,
@@ -251,9 +261,9 @@ export const getMyAttemptById = async (req, res) => {
         message: 'Attempt not found',
       });
     }
-// IMPORTANT: Lock result until test end time
+    // IMPORTANT: Lock result until test end time (UNLESS practice test)
     const now = new Date();
-    if (attempt.test && now < new Date(attempt.test.endTime)) {
+    if (attempt.test && attempt.test.testType !== 'practice' && now < new Date(attempt.test.endTime)) {
       return res.status(403).json({
         success: false,
         message: 'Result is not available yet. Please wait until the test ends.',
@@ -278,6 +288,7 @@ export const getMyAttemptById = async (req, res) => {
         subject: attempt.test?.subject || null,
         score: attempt.score,
         totalQuestions: attempt.totalQuestions,
+        attemptNumber: attempt.attemptNumber,
         accuracy,
         submittedAt: attempt.createdAt,
         answers: attempt.answers.map((ans) => ({
@@ -337,7 +348,7 @@ export const getAttemptReview = async (req, res) => {
     const attempt = await Attempt.findById(attemptId)
       .populate({
         path: 'test',
-        select: 'title subject chapter endTime',
+        select: 'title subject chapter testType endTime',
       })
       .populate({
         path: 'answers.question',
@@ -372,8 +383,8 @@ export const getAttemptReview = async (req, res) => {
         });
       }
 
-      // Student can review only after test ends
-      if (attempt.test) {
+      // Student can review only after test ends (unless practice test)
+      if (attempt.test && attempt.test.testType !== 'practice') {
         const now = new Date();
         const testEndTime = new Date(attempt.test.endTime);
 
@@ -417,6 +428,7 @@ export const getAttemptReview = async (req, res) => {
       attemptId: attempt._id,
       score: attempt.score,
       totalQuestions: attempt.totalQuestions,
+      attemptNumber: attempt.attemptNumber,
       submittedAt: attempt.createdAt,
       test: attempt.test
         ? {
