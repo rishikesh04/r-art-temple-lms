@@ -106,52 +106,52 @@ export default function AttemptTestPage() {
     if (hasRestoredRef.current) return;
     hasRestoredRef.current = true;
 
-      const calcTime = () => {
-        if (isPractice || !test.startTime || !test.endTime) return test.duration * 60;
-        const now = Date.now();
-        const start = new Date(test.startTime).getTime();
-        const end = new Date(test.endTime).getTime();
-        
-        if (isNaN(start) || isNaN(end)) return test.duration * 60;
-        
-        const elapsedSinceStart = Math.floor((now - start) / 1000);
-        const initialRemaining = elapsedSinceStart > 0 
-          ? Math.max(0, (test.duration * 60) - elapsedSinceStart) 
-          : test.duration * 60;
-        const untilEnd = Math.max(0, Math.floor((end - now) / 1000));
-        return Math.min(initialRemaining, untilEnd);
-      };
+    const calcTime = () => {
+      if (isPractice || !test.startTime || !test.endTime) return test.duration * 60;
+      const now = Date.now();
+      const start = new Date(test.startTime).getTime();
+      const end = new Date(test.endTime).getTime();
 
-      try {
-        const raw = localStorage.getItem(draftKey);
-        if (!raw) {
-          startedAtRef.current = Date.now();
-          setRemaining(calcTime());
-          setIsTimerReady(true);
-          return;
-        }
-        const draft = JSON.parse(raw) as AttemptDraft;
-        if (!draft || draft.testId !== test._id) {
-          startedAtRef.current = Date.now();
-          setRemaining(calcTime());
-          setIsTimerReady(true);
-          return;
-        }
+      if (isNaN(start) || isNaN(end)) return test.duration * 60;
 
-        startedAtRef.current = typeof draft.startedAt === 'number' ? draft.startedAt : Date.now();
-        setAnswers(draft.answers || {});
-        setMarkedForReview(draft.marked || {});
-        const vis = draft.visitedIds || [];
-        setVisitedIds(Object.fromEntries(vis.map((qid) => [qid, true])));
-        setActiveIndex(Math.min(Math.max(0, draft.activeIndex || 0), test.questions.length - 1));
+      const elapsedSinceStart = Math.floor((now - start) / 1000);
+      const initialRemaining = elapsedSinceStart > 0
+        ? Math.max(0, (test.duration * 60) - elapsedSinceStart)
+        : test.duration * 60;
+      const untilEnd = Math.max(0, Math.floor((end - now) / 1000));
+      return Math.min(initialRemaining, untilEnd);
+    };
 
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) {
+        startedAtRef.current = Date.now();
         setRemaining(calcTime());
         setIsTimerReady(true);
-      } catch {
-        startedAtRef.current = Date.now();
-        setRemaining(test.duration * 60); // Fallback
-        setIsTimerReady(true);
+        return;
       }
+      const draft = JSON.parse(raw) as AttemptDraft;
+      if (!draft || draft.testId !== test._id) {
+        startedAtRef.current = Date.now();
+        setRemaining(calcTime());
+        setIsTimerReady(true);
+        return;
+      }
+
+      startedAtRef.current = typeof draft.startedAt === 'number' ? draft.startedAt : Date.now();
+      setAnswers(draft.answers || {});
+      setMarkedForReview(draft.marked || {});
+      const vis = draft.visitedIds || [];
+      setVisitedIds(Object.fromEntries(vis.map((qid) => [qid, true])));
+      setActiveIndex(Math.min(Math.max(0, draft.activeIndex || 0), test.questions.length - 1));
+
+      setRemaining(calcTime());
+      setIsTimerReady(true);
+    } catch {
+      startedAtRef.current = Date.now();
+      setRemaining(test.duration * 60); // Fallback
+      setIsTimerReady(true);
+    }
   }, [draftKey, test]);
 
   useEffect(() => {
@@ -167,7 +167,7 @@ export default function AttemptTestPage() {
       const nowMs = Date.now();
       const byDuration = Math.max(0, totalAllowedSeconds - Math.floor((nowMs - startedAtRef.current) / 1000));
       if (isPractice || !test.endTime) return byDuration;
-      
+
       const endMs = new Date(test.endTime).getTime();
       const byEndTime = Number.isFinite(endMs)
         ? Math.max(0, Math.floor((endMs - nowMs) / 1000))

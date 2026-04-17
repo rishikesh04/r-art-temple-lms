@@ -77,7 +77,7 @@ export default function UpcomingTestsPage() {
       ) : (
         <motion.div className="flex flex-col gap-3" variants={listContainer} initial="hidden" animate="show">
           {filtered.map((t) => (
-            <PremiumStrip key={t._id} to={`/tests/${t._id}`}>
+            <PremiumStrip key={t._id} to={`/tests/${t._id}/start`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[15px] font-semibold tracking-tight text-slate-900">{t.title}</p>

@@ -16,11 +16,11 @@ const testSchema = new mongoose.Schema(
       enum: ['live', 'practice'],
       default: 'live',
     },
-    // mode: {
-    //   type: String,
-    //   enum: ['live', 'practice'],
-    //   default: 'live',
-    // },
+    mode: {
+      type: String,
+      enum: ['live', 'practice'],
+      default: 'live',
+    },
     classLevel: {
       type: String,
       required: [true, 'Class level is required'],

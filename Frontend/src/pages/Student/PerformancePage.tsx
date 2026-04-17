@@ -231,8 +231,8 @@ export default function PerformancePage() {
             {d.testLabel}
           </p>
           <div className="flex items-center gap-2 mb-2">
-             <div className="h-1.5 w-1.5 rounded-full bg-[#ff5722]" />
-             <p className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">{d.name}</p>
+            <div className="h-1.5 w-1.5 rounded-full bg-[#ff5722]" />
+            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">{d.name}</p>
           </div>
           <p className="text-2xl font-black text-slate-900">{d.score}%</p>
           <p className="mt-2 text-[10px] font-bold text-slate-400 italic">
@@ -247,11 +247,11 @@ export default function PerformancePage() {
   return (
     <div className="min-h-[calc(100vh-88px)] bg-slate-50 px-4 py-8 md:py-12">
       <div className="max-w-4xl mx-auto">
-        
+
         {/* Title Area */}
         <div className="flex flex-col mb-10">
           <div className="flex items-center gap-4 mb-3">
-             <Link
+            <Link
               to="/dashboard"
               className="h-10 w-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-[#ff5722] transition-colors shadow-sm"
             >
@@ -265,7 +265,7 @@ export default function PerformancePage() {
             Analytic
           </h1>
           <p className="text-sm md:text-base font-medium text-slate-500 max-w-lg leading-relaxed">
-            Tracking your progress across <span className="text-slate-900 font-bold">{totalTests} attempts</span>. 
+            Tracking your progress across <span className="text-slate-900 font-bold">{totalTests} attempts</span>.
             Tap any data point on the graph to review that specific test result.
           </p>
         </div>
@@ -283,15 +283,15 @@ export default function PerformancePage() {
                 Points Clickable
               </span>
             </h3>
-            
+
             <div className="flex items-center gap-6">
-               <div className="flex flex-col items-end">
-                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Recent Trend</span>
-                 <div className={`flex items-center gap-1 font-black ${trend >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                   {trend >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-                   <span>{trend >= 0 ? '+' : ''}{trend}%</span>
-                 </div>
-               </div>
+              <div className="flex flex-col items-end">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Recent Trend</span>
+                <div className={`flex items-center gap-1 font-black ${trend >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                  {trend >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+                  <span>{trend >= 0 ? '+' : ''}{trend}%</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -306,27 +306,27 @@ export default function PerformancePage() {
               >
                 <defs>
                   <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ff5722" stopOpacity={0.15}/>
-                    <stop offset="95%" stopColor="#ff5722" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#ff5722" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#ff5722" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis 
-                  dataKey="name" 
-                  tick={{ fontSize: 11, fontWeight: 700, fill: '#94a3b8' }} 
+                <XAxis
+                  dataKey="name"
+                  tick={{ fontSize: 11, fontWeight: 700, fill: '#94a3b8' }}
                   axisLine={false}
                   tickLine={false}
                   dy={10}
                 />
-                <YAxis 
-                   domain={[0, 100]} 
-                   tick={{ fontSize: 11, fontWeight: 700, fill: '#94a3b8' }} 
-                   axisLine={false}
-                   tickLine={false}
-                   tickFormatter={v => `${v}%`}
+                <YAxis
+                  domain={[0, 100]}
+                  tick={{ fontSize: 11, fontWeight: 700, fill: '#94a3b8' }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={v => `${v}%`}
                 />
-                <Tooltip 
-                  content={<CustomTooltip />} 
+                <Tooltip
+                  content={<CustomTooltip />}
                   cursor={{ stroke: '#ff5722', strokeWidth: 1.5, strokeDasharray: '4 4' }}
                 />
                 <Area
@@ -336,20 +336,20 @@ export default function PerformancePage() {
                   strokeWidth={4}
                   fillOpacity={1}
                   fill="url(#colorScore)"
-                  activeDot={{ 
-                    r: 8, 
-                    fill: '#ff5722', 
-                    stroke: '#fff', 
-                    strokeWidth: 3, 
+                  activeDot={{
+                    r: 8,
+                    fill: '#ff5722',
+                    stroke: '#fff',
+                    strokeWidth: 3,
                     style: { cursor: 'pointer' },
                     onClick: (e: any, props: any) => handlePointClick(props.payload)
                   }}
-                  dot={{ 
-                    r: 6, 
-                    fill: '#fff', 
-                    stroke: '#ff5722', 
+                  dot={{
+                    r: 6,
+                    fill: '#fff',
+                    stroke: '#ff5722',
                     strokeWidth: 3,
-                    style: { cursor: 'pointer' } 
+                    style: { cursor: 'pointer' }
                   }}
                 />
               </AreaChart>
@@ -362,107 +362,107 @@ export default function PerformancePage() {
 
         {/* ─── Performance Analysis Section ─── */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
-          
+
           {/* Main Info Block */}
           <div className="md:col-span-12">
             <h2 className="text-xl font-black text-slate-800 mb-6 px-1 flex items-center gap-3">
-               Performance Analysis
-               <div className="h-[2px] flex-1 bg-slate-200" />
+              Performance Analysis
+              <div className="h-[2px] flex-1 bg-slate-200" />
             </h2>
           </div>
 
           {/* Quick Metrics */}
           <div className="md:col-span-4 grid grid-cols-1 gap-4">
-             <MetricCard 
-                label="Average Accuracy" 
-                value={avgPct} 
-                icon={<Target size={20} />} 
-                color="orange" 
-                suffix="%" 
-                delay={0}
-             />
-             <MetricCard 
-                label="Peak Achievement" 
-                value={bestPct} 
-                icon={<Trophy size={20} />} 
-                color="emerald" 
-                suffix="%" 
-                delay={0.1}
-             />
-             <MetricCard 
-                label="Current Streak" 
-                value={streakScore} 
-                icon={<Clock size={20} />} 
-                color="blue" 
-                suffix=" tests" 
-                subtext="Tests ≥ 70% accuracy"
-                delay={0.2}
-             />
+            <MetricCard
+              label="Average Accuracy"
+              value={avgPct}
+              icon={<Target size={20} />}
+              color="orange"
+              suffix="%"
+              delay={0}
+            />
+            <MetricCard
+              label="Peak Achievement"
+              value={bestPct}
+              icon={<Trophy size={20} />}
+              color="emerald"
+              suffix="%"
+              delay={0.1}
+            />
+            <MetricCard
+              label="Current Streak"
+              value={streakScore}
+              icon={<Clock size={20} />}
+              color="blue"
+              suffix=" tests"
+              subtext="Tests ≥ 70% accuracy"
+              delay={0.2}
+            />
           </div>
 
           {/* Detailed Diagnosis Card */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
             className="md:col-span-8 bg-white border border-slate-200 rounded-[2rem] p-6 md:p-8 shadow-sm"
           >
-             <div className="flex items-center justify-between mb-8">
-               <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Larning Diagnosis</h3>
-               <span className="px-3 py-1 bg-slate-50 text-slate-500 text-[10px] font-black rounded-lg border border-slate-200 uppercase tracking-widest">
-                 Based on {totalTests} attempts
-               </span>
-             </div>
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Larning Diagnosis</h3>
+              <span className="px-3 py-1 bg-slate-50 text-slate-500 text-[10px] font-black rounded-lg border border-slate-200 uppercase tracking-widest">
+                Based on {totalTests} attempts
+              </span>
+            </div>
 
-             <div className="space-y-8">
-               {/* Weak Areas */}
-               {weakAreas.length > 0 ? (
-                 <div>
-                   <div className="flex items-center gap-2 mb-4 text-rose-500">
-                     <AlertCircle size={18} />
-                     <h4 className="text-[13px] font-black uppercase tracking-widest">Areas for Improvement</h4>
-                   </div>
-                   <div className="space-y-4">
-                     {weakAreas.map((area) => (
-                       <TopicRow key={area.topic} area={area} color="rose" />
-                     ))}
-                   </div>
-                   <p className="mt-4 text-[12px] font-medium text-slate-400 bg-slate-50 p-2.5 rounded-xl border border-dashed border-slate-200">
-                     💡 Tip: Focus on <span className="text-slate-900 font-bold">{weakAreas[0].topic}</span> first. Re-reading the fundamental concepts here could boost your total average significantly.
-                   </p>
-                 </div>
-               ) : (
-                 <div className="p-6 bg-emerald-50 rounded-2.4xl border border-emerald-100 text-center">
-                    <CheckCircle2 size={32} className="text-emerald-500 mx-auto mb-3" />
-                    <p className="text-sm font-bold text-emerald-800">
-                      {insufficientCount > 0 ? 'Collect more data' : 'No major weak areas detected!'}
-                    </p>
-                    <p className="text-xs font-medium text-emerald-600 mt-1">
-                      {insufficientCount > 0 
-                        ? `We need at least 3 questions in a topic for a complete analysis. You have ${insufficientCount} topics with partial data.`
-                        : 'Consistency is your strength. Keep maintaining this level.'}
-                    </p>
-                 </div>
-               )}
+            <div className="space-y-8">
+              {/* Weak Areas */}
+              {weakAreas.length > 0 ? (
+                <div>
+                  <div className="flex items-center gap-2 mb-4 text-rose-500">
+                    <AlertCircle size={18} />
+                    <h4 className="text-[13px] font-black uppercase tracking-widest">Areas for Improvement</h4>
+                  </div>
+                  <div className="space-y-4">
+                    {weakAreas.map((area) => (
+                      <TopicRow key={area.topic} area={area} color="rose" />
+                    ))}
+                  </div>
+                  <p className="mt-4 text-[12px] font-medium text-slate-400 bg-slate-50 p-2.5 rounded-xl border border-dashed border-slate-200">
+                    💡 Tip: Focus on <span className="text-slate-900 font-bold">{weakAreas[0].topic}</span> first. Re-reading the fundamental concepts here could boost your total average significantly.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-6 bg-emerald-50 rounded-2.4xl border border-emerald-100 text-center">
+                  <CheckCircle2 size={32} className="text-emerald-500 mx-auto mb-3" />
+                  <p className="text-sm font-bold text-emerald-800">
+                    {insufficientCount > 0 ? 'Collect more data' : 'No major weak areas detected!'}
+                  </p>
+                  <p className="text-xs font-medium text-emerald-600 mt-1">
+                    {insufficientCount > 0
+                      ? `We need at least 3 questions in a topic for a complete analysis. You have ${insufficientCount} topics with partial data.`
+                      : 'Consistency is your strength. Keep maintaining this level.'}
+                  </p>
+                </div>
+              )}
 
-               {/* Strong Areas */}
-               {strongAreas.length > 0 && (
-                 <div className="pt-4 border-t border-slate-100">
-                   <div className="flex items-center gap-2 mb-4 text-emerald-500">
-                     <CheckCircle2 size={18} />
-                     <h4 className="text-[13px] font-black uppercase tracking-widest">Your Strengths</h4>
-                   </div>
-                   <div className="flex flex-wrap gap-2">
-                     {strongAreas.map(area => (
-                       <div key={area.topic} className="px-3 py-1.5 bg-emerald-50 text-emerald-700 text-[12px] font-bold rounded-xl border border-emerald-100 flex items-center gap-2">
-                         {area.topic}
-                         <span className="text-[10px] bg-emerald-100 px-1 rounded-md">{area.accuracy}%</span>
-                       </div>
-                     ))}
-                   </div>
-                 </div>
-               )}
-             </div>
+              {/* Strong Areas */}
+              {strongAreas.length > 0 && (
+                <div className="pt-4 border-t border-slate-100">
+                  <div className="flex items-center gap-2 mb-4 text-emerald-500">
+                    <CheckCircle2 size={18} />
+                    <h4 className="text-[13px] font-black uppercase tracking-widest">Your Strengths</h4>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {strongAreas.map(area => (
+                      <div key={area.topic} className="px-3 py-1.5 bg-emerald-50 text-emerald-700 text-[12px] font-bold rounded-xl border border-emerald-100 flex items-center gap-2">
+                        {area.topic}
+                        <span className="text-[10px] bg-emerald-100 px-1 rounded-md">{area.accuracy}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </motion.div>
 
         </div>
@@ -494,7 +494,7 @@ function MetricCard({ label, value, icon, color, suffix, subtext, delay }: any) 
         <div className="flex flex-col">
           <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</span>
           <span className="text-2xl font-black text-slate-900 tracking-tight leading-none pt-1">
-             {value}{suffix}
+            {value}{suffix}
           </span>
         </div>
       </div>

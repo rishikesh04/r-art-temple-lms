@@ -17,7 +17,6 @@ const AdminTestResults = lazy(() => import('./pages/Admin/AdminTestResults'));
 import ErrorBoundary from './components/ErrorBoundary';
 const StudentDashboard = lazy(() => import('./pages/Student/StudentDashboard'));
 const TestsList = lazy(() => import('./pages/Student/TestsList'));
-const TestDetailsPage = lazy(() => import('./pages/Student/TestDetails'));
 const TestStartPage = lazy(() => import('./pages/Student/TestStartPage'));
 const AttemptTestPage = lazy(() => import('./pages/Student/AttemptTest'));
 const AttemptResultPage = lazy(() => import('./pages/Student/AttemptResult'));
@@ -35,6 +34,7 @@ function firstNameFromFullName(name: string) {
   if (!t) return '';
   return t.split(/\s+/)[0] ?? t;
 }
+
 
 function App() {
   const { user, logout } = useAuth();
@@ -414,11 +414,6 @@ function App() {
             <Route path="/tests/:id/start" element={
               <ProtectedRoute allowedRole="student">
                 <TestStartPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/tests/:id" element={
-              <ProtectedRoute allowedRole="student">
-                <TestDetailsPage />
               </ProtectedRoute>
             } />
             <Route path="/tests/:id/attempt" element={

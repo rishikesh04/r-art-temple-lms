@@ -17,13 +17,13 @@ export default function TestSubmittedPage() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
   const navigate = useNavigate();
-  
+
   const testEndTime = location.state?.testEndTime ? new Date(location.state.testEndTime).getTime() : null;
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
   useEffect(() => {
     if (!testEndTime) return;
-    
+
     const updateTime = () => {
       const now = Date.now();
       const diff = testEndTime - now;
@@ -34,7 +34,7 @@ export default function TestSubmittedPage() {
         setTimeLeft(diff);
       }
     };
-    
+
     updateTime();
     const intervalId = setInterval(updateTime, 1000);
     return () => clearInterval(intervalId);
@@ -51,16 +51,16 @@ export default function TestSubmittedPage() {
 
       <div className="flex-1 flex flex-col items-center justify-center p-4 max-md:pb-32">
         <div className="w-full max-w-md bg-white rounded-[2rem] border border-slate-200 shadow-xl shadow-slate-200/40 p-8 flex flex-col items-center text-center">
-          
+
           <img src={doneTick} alt="Submitted" className="w-32 h-32 object-contain mb-2" />
-          
+
           <h2 className="text-xl font-bold text-slate-800 mb-2 leading-snug">
             Test Submitted Successfully
           </h2>
           <p className="text-sm font-medium text-slate-500 mb-6">
             Result will be available when test ends
           </p>
-          
+
           <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 w-full flex flex-col items-center">
             <img src={waitingGif} alt="Waiting" className="w-24 h-24 object-contain mix-blend-multiply mb-3" />
             <div className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-1">Time Remaining</div>
@@ -68,7 +68,7 @@ export default function TestSubmittedPage() {
               {timeLeft !== null ? formatCountdown(timeLeft) : '--:--:--'}
             </div>
           </div>
-          
+
         </div>
       </div>
 

@@ -5,6 +5,8 @@ import { ArrowLeft } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import axiosInstance from '../../utils/axiosInstance';
 import LearningCuate from '../../assets/Learning-cuate.svg';
+import MathIllustration from '../../assets/Mathematics-cuate.svg';
+import ScienceIllustration from '../../assets/chemistry lab-pana.svg';
 import { getApiMessage } from '../../utils/apiMessage';
 
 type StudentQuestion = {
@@ -58,7 +60,6 @@ const block = {
 export default function TestStartPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [heroSrc, setHeroSrc] = useState('/for-mobile.png');
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['test', id],
@@ -119,10 +120,13 @@ export default function TestStartPage() {
             >
               <div className="flex min-h-[11rem] items-center justify-center md:min-h-[14rem]">
                 <img
-                  src={heroSrc}
+                  src={
+                    test.subject.toLowerCase().includes('math') ? MathIllustration :
+                    test.subject.toLowerCase().includes('sci') ? ScienceIllustration :
+                    LearningCuate
+                  }
                   alt=""
                   className="max-h-44 w-full max-w-xs object-contain md:max-h-52"
-                  onError={() => setHeroSrc(LearningCuate)}
                 />
               </div>
             </motion.div>

@@ -105,9 +105,8 @@ export default function TestsList() {
               key={key}
               type="button"
               onClick={() => setView(key)}
-              className={`px-4 py-2 border-2 border-brand-black font-black uppercase text-xs shadow-solid-sm ${
-                safeFilter === key ? 'bg-brand-black text-white' : 'bg-white'
-              }`}
+              className={`px-4 py-2 border-2 border-brand-black font-black uppercase text-xs shadow-solid-sm ${safeFilter === key ? 'bg-brand-black text-white' : 'bg-white'
+                }`}
             >
               {label}
             </button>
@@ -127,9 +126,8 @@ export default function TestsList() {
               key={key}
               type="button"
               onClick={() => setView(key)}
-              className={`px-3 py-2 rounded-full border-2 border-brand-black font-black uppercase text-[11px] shadow-solid-sm ${
-                safeFilter === key ? 'bg-brand-black text-white' : 'bg-white'
-              }`}
+              className={`px-3 py-2 rounded-full border-2 border-brand-black font-black uppercase text-[11px] shadow-solid-sm ${safeFilter === key ? 'bg-brand-black text-white' : 'bg-white'
+                }`}
             >
               {label}
             </button>
@@ -199,12 +197,7 @@ export default function TestsList() {
                   </div>
 
                   <div className="mt-6 flex flex-col sm:flex-row gap-3">
-                    <Link
-                      to={`/tests/${t._id}`}
-                      className="flex-1 inline-flex items-center justify-center py-3 bg-white border-2 border-brand-black font-black uppercase shadow-solid-sm hover:-translate-y-1 hover:-translate-x-1 hover:shadow-solid active:translate-y-0 active:translate-x-0 active:shadow-none transition-all"
-                    >
-                      View Details
-                    </Link>
+
                     <Link
                       to={`/tests/${t._id}/start`}
                       className="flex-1 inline-flex items-center justify-center py-3 bg-brand-orange border-2 border-brand-black font-black uppercase shadow-solid-sm hover:-translate-y-1 hover:-translate-x-1 hover:shadow-solid active:translate-y-0 active:translate-x-0 active:shadow-none transition-all"

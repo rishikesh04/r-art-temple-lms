@@ -103,7 +103,7 @@ export default function PastTestsPage() {
           {filtered.map((t) => {
             const attemptId = attemptByTestId.get(t._id);
             const highlight = Boolean(attemptId);
-            const to = highlight ? `/attempts/${attemptId}` : `/tests/${t._id}`;
+            const to = highlight ? `/attempts/${attemptId}` : `/tests/${t._id}/start`;
             return (
               <PremiumStrip key={t._id} to={to} highlight={highlight}>
                 <div className="flex items-start justify-between gap-3">

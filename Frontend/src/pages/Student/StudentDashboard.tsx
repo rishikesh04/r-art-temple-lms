@@ -361,7 +361,7 @@ export default function StudentDashboard() {
                       {data.data.availableTests.map((t) => (
                         <Link
                           key={t._id}
-                          to={`/tests/${t._id}`}
+                          to={`/tests/${t._id}/start`}
                           className="block rounded-xl border border-slate-200 p-4 bg-white shadow-sm transition hover:border-slate-300 hover:shadow-md"
                         >
                           <div className="flex items-start justify-between gap-3">
