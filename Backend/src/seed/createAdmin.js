@@ -13,11 +13,6 @@ const createAdmin = async () => {
     // 2. Check if an admin user already exists
     const adminExists = await User.findOne({ role: 'admin' });
 
-    if (adminExists) {
-      console.log('Admin user already exists. Skipping admin creation.');
-      process.exit(0); // Exit successfully
-    }
-
     // 3. Get admin credentials from environment variables
     const { ADMIN_NAME, ADMIN_EMAIL, ADMIN_PHONE, ADMIN_PASSWORD } = process.env;
 
@@ -26,6 +21,17 @@ const createAdmin = async () => {
       console.error('Error: Missing admin credentials in .env file.');
       console.error('Please ensure ADMIN_NAME, ADMIN_EMAIL, ADMIN_PHONE, and ADMIN_PASSWORD are set.');
       process.exit(1); // Exit with failure
+    }
+
+    if (adminExists) {
+      console.log('Admin user already exists. Updating credentials...');
+      adminExists.name = ADMIN_NAME;
+      adminExists.email = ADMIN_EMAIL;
+      adminExists.phone = ADMIN_PHONE;
+      adminExists.password = ADMIN_PASSWORD; 
+      await adminExists.save(); // Utilizing the pre('save') hook to hash the new password
+      console.log('Success: Admin credentials (including password) have been updated successfully!');
+      process.exit(0); 
     }
 
     // 4. Create the admin user

@@ -9,8 +9,8 @@ const generateToken = (res, userId) => {
   // Set the token in an HTTP-only cookie
   res.cookie('token', token, {
     httpOnly: true, // Prevents client-side scripts from accessing the cookie
-    secure: process.env.NODE_ENV !== 'development', // Use secure cookies in production (HTTPS)
-    sameSite: 'strict', // Prevents CSRF attacks
+    secure: process.env.NODE_ENV === 'production', // Use secure cookies in production (HTTPS)
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict', // Cross-domain requires 'none'
     maxAge: 7 * 24 * 60 * 60 * 1000, // Cookie expires in 7 days (in milliseconds)
   });
 

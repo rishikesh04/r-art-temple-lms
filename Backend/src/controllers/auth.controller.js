@@ -104,6 +104,8 @@ const logoutUser = (req, res) => {
   // Clear the cookie by setting an empty token and expiring it immediately
   res.cookie('token', '', {
     httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
     expires: new Date(0),
   });
 

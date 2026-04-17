@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: r-art-temple-backend
+    env: node
+    region: oregon # or frankfurt/ohio depending on your location
+    buildCommand: npm install
+    startCommand: npm start # Ensure your package.json has a "start": "node src/server.js" script
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Define all secret keys securely in the Render Dashboard, do not commit them here.
