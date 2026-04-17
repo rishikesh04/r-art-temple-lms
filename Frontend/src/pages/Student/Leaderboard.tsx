@@ -67,7 +67,7 @@ export default function StudentLeaderboardPage() {
   const { data: myAttemptsData } = useQuery({
     queryKey: ['myAttempts'],
     queryFn: async () => {
-      const res = await axiosInstance.get('/attempts/my-attempts');
+      const res = await axiosInstance.get('/attempts/my-attempts', { params: { nopagination: 'true' } });
       return res.data as MyAttemptsResponse;
     },
   });

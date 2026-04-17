@@ -44,7 +44,7 @@ export default function PastTestsPage() {
   const { data: testsData, isLoading: testsLoading, error: testsError } = useQuery({
     queryKey: ['tests'],
     queryFn: async () => {
-      const res = await axiosInstance.get('/tests');
+      const res = await axiosInstance.get('/tests', { params: { nopagination: 'true' } });
       return res.data as TestsListResponse;
     },
   });
@@ -52,7 +52,7 @@ export default function PastTestsPage() {
   const { data: attemptsData } = useQuery({
     queryKey: ['myAttempts'],
     queryFn: async () => {
-      const res = await axiosInstance.get('/attempts/my-attempts');
+      const res = await axiosInstance.get('/attempts/my-attempts', { params: { nopagination: 'true' } });
       return res.data as MyAttemptsResponse;
     },
   });

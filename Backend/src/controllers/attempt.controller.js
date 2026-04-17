@@ -56,8 +56,8 @@ export const submitTest = async (req, res) => {
       test: testId,
     }).sort({ attemptNumber: -1 });
 
-    const isLive = test.testType === 'live';
-    
+    const isLive = test.mode !== 'practice';
+
     if (isLive && latestAttempt) {
       return res.status(400).json({
         success: false,
@@ -70,7 +70,7 @@ export const submitTest = async (req, res) => {
     // Check test timing (ignore end time for practice tests)
     const now = new Date();
 
-    if (now < new Date(test.startTime)) {
+    if (isLive && test.startTime && now < new Date(test.startTime)) {
       return res.status(403).json({
         success: false,
         message: 'This test has not started yet',
@@ -156,7 +156,7 @@ export const submitTest = async (req, res) => {
     });
 
 
-    const msg = isLive 
+    const msg = test.mode === 'live'
       ? 'Test submitted successfully. Result will be available after the test ends.'
       : 'Practice test submitted successfully. Result is available now.';
 
@@ -196,12 +196,45 @@ export const getMyAttempts = async (req, res) => {
         message: 'Only students can view their attempts',
       });
     }
+    const totalCount = await Attempt.countDocuments({ student: req.user._id });
+
+    if (req.query.nopagination === 'true') {
+      const attempts = await Attempt.find({ student: req.user._id })
+        .populate('test', 'title subject classLevel totalMarks mode endTime')
+        .sort({ createdAt: -1 })
+        .lean();
+      
+      const formattedAttempts = attempts.map((attempt) => {
+        const isPractice = attempt.test && attempt.test.mode === 'practice';
+        const isResultAvailable =
+          isPractice || (attempt.test && new Date() > new Date(attempt.test.endTime));
+
+        return {
+          id: attempt._id,
+          test: attempt.test,
+          submittedAt: attempt.createdAt,
+          attemptNumber: attempt.attemptNumber,
+          resultAvailable: isResultAvailable,
+          score: isResultAvailable ? attempt.score : null,
+          totalQuestions: isResultAvailable ? attempt.totalQuestions : null,
+        };
+      });
+
+      return res.status(200).json({
+        success: true,
+        totalCount,
+        attempts: formattedAttempts,
+      });
+    }
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
     const attempts = await Attempt.find({ student: req.user._id })
-      .populate('test', 'title subject classLevel totalMarks')
-      .sort({ createdAt: -1 });
 
     const formattedAttempts = attempts.map((attempt) => {
-      const isPractice = attempt.test && attempt.test.testType === 'practice';
+      const isPractice = attempt.test && attempt.test.mode === 'practice';
       const isResultAvailable =
         isPractice || (attempt.test && new Date() > new Date(attempt.test.endTime));
 
@@ -218,7 +251,9 @@ export const getMyAttempts = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      count: formattedAttempts.length,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      currentPage: page,
       attempts: formattedAttempts,
     });
   } catch (error) {
@@ -249,7 +284,7 @@ export const getMyAttemptById = async (req, res) => {
       _id: req.params.id,
       student: req.user._id,
     })
-      .populate('test', 'title description subject totalMarks duration startTime endTime')
+      .populate('test', 'title description subject totalMarks duration startTime endTime mode')
       .populate({
         path: 'answers.question',
         select: 'questionText options correctAnswer explanation subject chapter difficulty',
@@ -263,7 +298,7 @@ export const getMyAttemptById = async (req, res) => {
     }
     // IMPORTANT: Lock result until test end time (UNLESS practice test)
     const now = new Date();
-    if (attempt.test && attempt.test.testType !== 'practice' && now < new Date(attempt.test.endTime)) {
+    if (attempt.test && attempt.test.mode !== 'practice' && now < new Date(attempt.test.endTime)) {
       return res.status(403).json({
         success: false,
         message: 'Result is not available yet. Please wait until the test ends.',
@@ -282,6 +317,7 @@ export const getMyAttemptById = async (req, res) => {
         testId: attempt.test?._id || null,
         testTitle: attempt.test?.title || 'Deleted Test',
         testDescription: attempt.test?.description || '',
+        mode: attempt.test?.mode || 'live',
         duration: attempt.test?.duration || 0,
         testStartTime: attempt.test?.startTime || null,
         testEndTime: attempt.test?.endTime || null,
@@ -319,14 +355,24 @@ export const getMyAttemptById = async (req, res) => {
 // @access  Private/Admin
 export const getAllAttempts = async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const totalCount = await Attempt.countDocuments();
     const attempts = await Attempt.find()
       .populate('student', 'name email classLevel')
       .populate('test', 'title subject classLevel')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
 
     return res.status(200).json({
       success: true,
-      count: attempts.length,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      currentPage: page,
       attempts,
     });
   } catch (error) {
@@ -348,7 +394,7 @@ export const getAttemptReview = async (req, res) => {
     const attempt = await Attempt.findById(attemptId)
       .populate({
         path: 'test',
-        select: 'title subject chapter testType endTime',
+        select: 'title subject chapter mode endTime',
       })
       .populate({
         path: 'answers.question',
@@ -384,7 +430,7 @@ export const getAttemptReview = async (req, res) => {
       }
 
       // Student can review only after test ends (unless practice test)
-      if (attempt.test && attempt.test.testType !== 'practice') {
+      if (attempt.test && attempt.test.mode !== 'practice') {
         const now = new Date();
         const testEndTime = new Date(attempt.test.endTime);
 
@@ -432,17 +478,19 @@ export const getAttemptReview = async (req, res) => {
       submittedAt: attempt.createdAt,
       test: attempt.test
         ? {
-            id: attempt.test._id,
-            title: attempt.test.title,
-            subject: attempt.test.subject,
-            chapter: attempt.test.chapter,
-          }
+          id: attempt.test._id,
+          title: attempt.test.title,
+          subject: attempt.test.subject,
+          chapter: attempt.test.chapter,
+          mode: attempt.test.mode,
+        }
         : {
-            id: null,
-            title: 'Deleted Test',
-            subject: 'N/A',
-            chapter: 'N/A',
-          },
+          id: null,
+          title: 'Deleted Test',
+          subject: 'N/A',
+          chapter: 'N/A',
+          mode: 'live',
+        },
       answers: safeAnswers,
     };
 

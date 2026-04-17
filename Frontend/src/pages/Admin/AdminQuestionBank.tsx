@@ -102,6 +102,9 @@ export default function AdminQuestionBank() {
   const [filterSubject, setFilterSubject] = useState('');
   const [filterDifficulty, setFilterDifficulty] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const LIMIT = 20;
   const [selectedQuestion, setSelectedQuestion] = useState<QuestionItem | null>(null);
   const [bulkRows, setBulkRows] = useState<QuestionForm[]>([]);
   const [bulkPreviewRows, setBulkPreviewRows] = useState<BulkPreviewRow[]>([]);
@@ -122,13 +125,15 @@ export default function AdminQuestionBank() {
     setIsLoading(true);
     setError('');
     try {
-      const params: Record<string, string> = {};
+      const params: Record<string, string | number> = { page, limit: LIMIT };
       if (filterClass) params.classLevel = filterClass;
       if (filterSubject) params.subject = filterSubject;
       if (filterDifficulty) params.difficulty = filterDifficulty;
+      if (search) params.search = search;
 
       const res = await axiosInstance.get('/questions', { params });
       setQuestions((res.data.questions || []) as QuestionItem[]);
+      setTotalPages(res.data.totalPages || 1);
     } catch (err) {
       setError(getApiMessage(err, 'Failed to load questions.'));
     } finally {
@@ -137,19 +142,17 @@ export default function AdminQuestionBank() {
   };
 
   useEffect(() => {
-    loadQuestions();
-  }, [filterClass, filterSubject, filterDifficulty]);
+    setPage(1);
+  }, [filterClass, filterSubject, filterDifficulty, search]);
 
-  const filteredBySearch = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return questions;
-    return questions.filter(
-      (item) =>
-        item.questionText.toLowerCase().includes(q) ||
-        item.chapter.toLowerCase().includes(q) ||
-        item.options.some((o) => o.toLowerCase().includes(q))
-    );
-  }, [questions, search]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadQuestions();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [filterClass, filterSubject, filterDifficulty, page, search]);
+
+  const filteredBySearch = questions;
 
   const resetForm = () => {
     setForm(INITIAL_FORM);
@@ -505,6 +508,31 @@ export default function AdminQuestionBank() {
                 ))}
               </div>
             )}
+
+            {/* Pagination Controls */}
+            {view === 'list' && totalPages > 1 && (
+              <div className="mt-12 flex items-center justify-center gap-4">
+                <button
+                  disabled={page <= 1 || isLoading}
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  className="px-6 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all shadow-sm flex items-center gap-2"
+                >
+                  <ChevronRight className="rotate-180" size={16} />
+                  Prev
+                </button>
+                <div className="px-6 py-3 bg-slate-900 text-white rounded-2xl text-xs font-black tabular-nums shadow-lg">
+                  {page} / {totalPages}
+                </div>
+                <button
+                  disabled={page >= totalPages || isLoading}
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  className="px-6 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all shadow-sm flex items-center gap-2"
+                >
+                  Next
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
           </motion.div>
         ) : (view === 'create' || view === 'edit') ? (
           <motion.div 
@@ -620,15 +648,13 @@ export default function AdminQuestionBank() {
                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
                       {(Object.keys(mapping) as FieldKey[]).map(key => (
                         <div key={key} className="space-y-2">
-                          <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1 capitalize">{key.replace(/([A-Z])/g, ' $1')}</label>
-                          <select 
+                          <Select 
+                            label={key.replace(/([A-Z])/g, ' $1')}
                             value={mapping[key]}
-                            onChange={e => setMapping(p => ({...p, [key]: e.target.value}))}
-                            className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm text-slate-900 appearance-none focus:ring-4 focus:ring-orange-500/10 transition-all cursor-pointer"
-                          >
-                            <option value="">( Unmapped )</option>
-                            {uploadedHeaders.map(h => <option key={h} value={h}>{h}</option>)}
-                          </select>
+                            onChange={v => setMapping(p => ({...p, [key]: v}))}
+                            options={['', ...uploadedHeaders]}
+                            labels={['( Unmapped )', ...uploadedHeaders]}
+                          />
                         </div>
                       ))}
                    </div>
@@ -858,15 +884,46 @@ function TextArea({ label, value, onChange, required }: { label: string; value: 
 }
 
 function Select({ label, value, onChange, options, labels }: { label: string; value: string; onChange: (v: string) => void; options: string[]; labels?: string[] }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const displayValue = labels ? labels[options.indexOf(value)] || value : value;
+
   return (
-    <div className="space-y-1.5 flex-1">
+    <div className="space-y-1.5 flex-1 relative">
       <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">{label}</label>
-      <select 
-        value={value} onChange={e => onChange(e.target.value)} 
-        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-orange-500/10 focus:bg-white focus:border-brand-orange transition-all font-bold text-slate-900 text-sm appearance-none"
+      <div 
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus-within:ring-4 focus-within:ring-orange-500/10 hover:border-brand-orange/30 transition-all cursor-pointer flex items-center justify-between"
       >
-        {options.map((opt, i) => <option key={opt} value={opt}>{labels ? labels[i] : opt}</option>)}
-      </select>
+        <span className="font-bold text-slate-900 text-sm whitespace-nowrap overflow-hidden text-ellipsis uppercase tracking-tight">
+          {displayValue || '( Unmapped )'}
+        </span>
+        <ChevronDown size={14} className={`text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </div>
+
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            <div className="fixed inset-0 z-[60]" onClick={() => setIsOpen(false)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="absolute left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-2xl z-[70] p-1.5 min-w-[140px] max-h-60 overflow-y-auto custom-scrollbar"
+            >
+              {options.map((opt, i) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => { onChange(opt); setIsOpen(false); }}
+                  className={`w-full px-4 py-2.5 text-left rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${value === opt ? 'bg-slate-900 text-white' : 'hover:bg-slate-50 text-slate-50'}`}
+                >
+                  {labels ? labels[i] : opt}
+                </button>
+              ))}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

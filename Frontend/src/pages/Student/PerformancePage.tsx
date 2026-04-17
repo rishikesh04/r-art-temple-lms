@@ -78,7 +78,7 @@ export default function PerformancePage() {
   const { data: attemptsData, isLoading: loadingAttempts, error: attemptsError } = useQuery({
     queryKey: ['myAttempts'],
     queryFn: async () => {
-      const res = await axiosInstance.get('/attempts/my-attempts');
+      const res = await axiosInstance.get('/attempts/my-attempts', { params: { nopagination: 'true' } });
       return res.data as AttemptsResponse;
     },
   });

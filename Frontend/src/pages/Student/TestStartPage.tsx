@@ -23,6 +23,7 @@ type TestDetails = {
   totalMarks: number;
   startTime: string;
   endTime: string;
+  testType?: 'live' | 'practice';
   questions: StudentQuestion[];
 };
 
@@ -75,6 +76,7 @@ export default function TestStartPage() {
 
   const errorMessage = error ? getApiMessage(error, 'Failed to load test.') : null;
   const test = data?.success ? data.test : null;
+  const isPractice = test?.testType === 'practice';
 
   return (
     <div className="min-h-[calc(100vh-88px)] bg-gradient-to-b from-slate-50 to-slate-100/60">
@@ -143,7 +145,7 @@ export default function TestStartPage() {
                 <DetailPill label="Duration" value={`${test.duration} min`} />
                 <DetailPill label="Total marks" value={String(test.totalMarks)} />
                 <DetailPill label="Questions" value={String(test.questions.length)} />
-                <DetailPill label="Ends" value={formatDateTime(test.endTime)} />
+                <DetailPill label={isPractice ? "Access" : "Ends"} value={isPractice ? "Available 24/7" : formatDateTime(test.endTime)} />
               </div>
             </motion.section>
 
@@ -152,7 +154,10 @@ export default function TestStartPage() {
               variants={block}
               className="rounded-3xl border-2 border-dashed border-slate-300/70 bg-slate-50/90 p-5 ring-1 ring-slate-900/[0.03]"
             >
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Instructions</p>
+              <div className="flex gap-2 items-center">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Instructions</p>
+                {isPractice && <span className="bg-indigo-100 text-indigo-700 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded ml-auto">Practice Mode</span>}
+              </div>
               <ul className="mt-3 space-y-2.5 text-sm font-medium leading-relaxed text-slate-600">
                 <li className="flex gap-2">
                   <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-[#ff5722]" aria-hidden />
@@ -160,7 +165,7 @@ export default function TestStartPage() {
                 </li>
                 <li className="flex gap-2">
                   <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-[#ff5722]" aria-hidden />
-                  The timer runs while you are in the attempt—submit before time runs out.
+                  {isPractice ? 'This is a practice test. You can attempt it as many times as you like for mastery.' : 'The timer runs while you are in the attempt—submit before time runs out.'}
                 </li>
                 <li className="flex gap-2">
                   <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-[#ff5722]" aria-hidden />
@@ -168,7 +173,7 @@ export default function TestStartPage() {
                 </li>
                 <li className="flex gap-2">
                   <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-[#ff5722]" aria-hidden />
-                  After submit, full results may unlock when the test window ends.
+                  {isPractice ? 'Results and score projections are provided immediately after submission.' : 'After submit, full results may unlock when the test window ends.'}
                 </li>
               </ul>
             </motion.section>

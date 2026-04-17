@@ -1,10 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import axiosInstance from '../../utils/axiosInstance';
 import MathematicsBro from '../../assets/Mathematics-bro.svg';
 import MathTileImg from '../../assets/Mathematics-cuate.svg';
 import ScienceTileImg from '../../assets/beaker chemistry-bro.svg';
 import { Link } from 'react-router-dom';
+import { getTimeRemaining } from './StudentListPagesShared';
+import { motion } from 'framer-motion';
+import { Calendar, Clock, AlertCircle, ArrowRight } from 'lucide-react';
 
 type DashboardResponse = {
   success: boolean;
@@ -24,6 +27,7 @@ type DashboardResponse = {
       totalMarks: number;
       startTime: string;
       endTime: string;
+      description?: string;
     }>;
     upcomingTests: Array<{
       _id: string;
@@ -34,6 +38,7 @@ type DashboardResponse = {
       totalMarks: number;
       startTime: string;
       endTime: string;
+      description?: string;
     }>;
     recentAttempts: Array<{
       attemptId: string;
@@ -45,11 +50,103 @@ type DashboardResponse = {
   };
 };
 
+type TestItem = {
+  _id: string;
+  title: string;
+  classLevel: string;
+  subject: string;
+  chapter: string;
+  testType: string;
+  duration: number;
+  totalMarks: number;
+  startTime: string;
+  endTime: string;
+  createdAt: string;
+};
+
+type StructureResponse = {
+  success: boolean;
+  structure: Record<string, Record<string, { live: TestItem[]; practice: TestItem[] }>>;
+};
+
 const formatDateTime = (value: string) => {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
   return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
+
+function UpcomingSpotlight({ test }: { test: any }) {
+  const [timeLeft, setTimeLeft] = useState(() => {
+    const diff = new Date(test.startTime).getTime() - Date.now();
+    return diff > 0 ? diff : 0;
+  });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const diff = new Date(test.startTime).getTime() - Date.now();
+      if (diff <= 0) {
+        setTimeLeft(0);
+        clearInterval(timer);
+      } else {
+        setTimeLeft(diff);
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [test.startTime]);
+
+  const formatTimer = (ms: number) => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  if (!test || timeLeft <= 0) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="mb-8 overflow-hidden rounded-3xl border border-orange-100 bg-white shadow-lg shadow-orange-500/10"
+    >
+      <div className="flex flex-col sm:flex-row">
+        {/* Left Side: Indicator & Title */}
+        <div className="flex-1 p-6 flex flex-col justify-center border-b sm:border-b-0 sm:border-r border-orange-50">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-75"></span>
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-[#ff5722]"></span>
+            </span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#ff5722]">Recent Upcoming Test</span>
+          </div>
+          <h2 className="text-xl md:text-2xl font-bold tracking-tight text-slate-800 uppercase leading-tight">{test.title}</h2>
+          {test.description && (
+            <p className="mt-2 text-xs font-medium text-slate-500 line-clamp-1 italic italic-font">"{test.description}"</p>
+          )}
+        </div>
+
+        {/* Right Side: Timer & Details */}
+        <div className="bg-[#ff5722] p-6 text-white flex flex-col items-center justify-center min-w-[180px] shrink-0">
+          <div className="text-[10px] font-black uppercase tracking-widest text-orange-200 mb-2 opacity-80">Countdown Launch</div>
+          <div className="text-3xl font-black tabular-nums tracking-tighter mb-3 leading-none">
+            {formatTimer(timeLeft)}
+          </div>
+          <div className="flex items-center gap-4 text-[11px] font-bold text-orange-100">
+            <div className="flex items-center gap-1">
+              <Calendar size={12} className="opacity-70" />
+              <span>{new Date(test.startTime).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span>
+            </div>
+            <div className="flex items-center gap-1 text-white">
+              <Clock size={12} className="opacity-70" />
+              <span>{new Date(test.startTime).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
 
 function AnalyticOverviewVisual() {
   const bars = [
@@ -84,11 +181,19 @@ export default function StudentDashboard() {
     },
   });
 
-  const { liveTest } = useMemo(() => {
-    if (!data?.success) return { liveTest: null };
-    const first = data.data.availableTests[0];
-    if (first) return { liveTest: first };
-    return { liveTest: null };
+  const { data: structData, isLoading: structLoading } = useQuery({
+    queryKey: ['testsStructure'],
+    queryFn: async () => {
+      const res = await axiosInstance.get('/tests/structure');
+      return res.data as StructureResponse;
+    },
+  });
+
+  const { liveTest, nextUpcoming } = useMemo(() => {
+    if (!data?.success) return { liveTest: null, nextUpcoming: null };
+    const firstLive = data.data.availableTests[0];
+    const firstUpcoming = data.data.upcomingTests[0];
+    return { liveTest: firstLive || null, nextUpcoming: firstUpcoming || null };
   }, [data]);
 
   return (
@@ -106,6 +211,8 @@ export default function StudentDashboard() {
             Your tests, attempts, and progress in one place.
           </p>
         </div>
+
+        {nextUpcoming && <UpcomingSpotlight test={nextUpcoming} />}
 
         {isLoading ? (
           <div className="w-full h-40 flex items-center justify-center border border-dashed border-slate-300 rounded-2xl text-slate-500 text-sm font-medium animate-pulse">
@@ -186,9 +293,9 @@ export default function StudentDashboard() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  className="relative aspect-square w-full overflow-hidden rounded-2xl border border-slate-200/90 bg-slate-100 text-left shadow-sm transition hover:border-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange/40"
+                <Link
+                  to="/dashboard/subject/Math"
+                  className="relative aspect-square w-full overflow-hidden rounded-2xl border border-slate-200/90 bg-slate-100 text-left shadow-sm transition hover:border-slate-300 hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange/40"
                   aria-label="Math"
                 >
                   <span
@@ -199,10 +306,10 @@ export default function StudentDashboard() {
                   <span className="absolute bottom-3 left-3 text-lg font-semibold uppercase tracking-tight text-white drop-shadow-sm">
                     Math
                   </span>
-                </button>
-                <button
-                  type="button"
-                  className="relative aspect-square w-full overflow-hidden rounded-2xl border border-slate-200/90 bg-slate-100 text-left shadow-sm transition hover:border-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange/40"
+                </Link>
+                <Link
+                  to="/dashboard/subject/Science"
+                  className="relative aspect-square w-full overflow-hidden rounded-2xl border border-slate-200/90 bg-slate-100 text-left shadow-sm transition hover:border-slate-300 hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange/40"
                   aria-label="Science"
                 >
                   <span
@@ -213,7 +320,7 @@ export default function StudentDashboard() {
                   <span className="absolute bottom-3 left-3 text-lg font-semibold uppercase tracking-tight text-white drop-shadow-sm">
                     Science
                   </span>
-                </button>
+                </Link>
               </div>
 
               <Link
@@ -338,3 +445,5 @@ function SectionCard({ title, children }: { title: string; children: React.React
 function EmptyText({ children }: { children: React.ReactNode }) {
   return <div className="p-6 text-center text-sm font-medium text-slate-400">{children}</div>;
 }
+
+

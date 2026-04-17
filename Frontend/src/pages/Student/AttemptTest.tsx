@@ -21,8 +21,10 @@ type TestDetails = {
   subject: string;
   chapter?: string;
   duration: number;
-  startTime: string;
-  endTime: string;
+  startTime?: string;
+  endTime?: string;
+  testType?: 'live' | 'practice';
+  mode?: 'live' | 'practice';
   questions: StudentQuestion[];
 };
 
@@ -81,6 +83,7 @@ export default function AttemptTestPage() {
   });
 
   const test = data?.success ? data.test : null;
+  const isPractice = test?.mode === 'practice' || test?.testType === 'practice';
   const totalAllowedSeconds = useMemo(() => (test ? test.duration * 60 : 0), [test]);
 
   const [remaining, setRemaining] = useState<number | null>(null);
@@ -104,7 +107,7 @@ export default function AttemptTestPage() {
     hasRestoredRef.current = true;
 
       const calcTime = () => {
-        if (!test.startTime || !test.endTime) return test.duration * 60;
+        if (isPractice || !test.startTime || !test.endTime) return test.duration * 60;
         const now = Date.now();
         const start = new Date(test.startTime).getTime();
         const end = new Date(test.endTime).getTime();
@@ -163,6 +166,8 @@ export default function AttemptTestPage() {
     const getRemainingSeconds = () => {
       const nowMs = Date.now();
       const byDuration = Math.max(0, totalAllowedSeconds - Math.floor((nowMs - startedAtRef.current) / 1000));
+      if (isPractice || !test.endTime) return byDuration;
+      
       const endMs = new Date(test.endTime).getTime();
       const byEndTime = Number.isFinite(endMs)
         ? Math.max(0, Math.floor((endMs - nowMs) / 1000))
@@ -175,7 +180,7 @@ export default function AttemptTestPage() {
       setRemaining(getRemainingSeconds());
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [test?._id, test?.endTime, isTimerReady, totalAllowedSeconds]);
+  }, [test?._id, test?.endTime, test?.testType, isTimerReady, totalAllowedSeconds, isPractice]);
 
   useEffect(() => {
     if (!test) return;
@@ -205,7 +210,7 @@ export default function AttemptTestPage() {
       const res = await axiosInstance.post(`/attempts/submit/${id}`, payload);
       return res.data as { success: boolean; message: string; attempt?: { id: string } };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       if (draftKey) {
         try {
           localStorage.removeItem(draftKey);
@@ -214,7 +219,10 @@ export default function AttemptTestPage() {
         }
       }
       if (id) {
-        if (test && new Date() >= new Date(test.endTime)) {
+        if (isPractice && data?.attempt?.id) {
+          // Practice: go directly to result page with the attempt ID
+          navigate(`/attempts/${data.attempt.id}`);
+        } else if (!isPractice && test && test.endTime && new Date() >= new Date(test.endTime)) {
           navigate(`/tests/${id}/leaderboard`);
         } else {
           navigate(`/tests/${id}/submitted`, { state: { testEndTime: test?.endTime } });

@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import axiosInstance from '../../utils/axiosInstance';
 import { getApiMessage } from '../../utils/apiMessage';
-import { 
-  FilePlus, 
-  Search, 
-  Settings, 
-  Trash2, 
-  Eye, 
+import {
+  FilePlus,
+  Search,
+  Settings,
+  Trash2,
+  Eye,
   EyeOff,
   Calendar,
   Clock,
@@ -20,9 +20,11 @@ import {
   Check,
   Edit3,
   ChevronDown,
+  ChevronRight,
   Filter
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { SYLLABUS } from '../../utils/syllabus';
 
 type TestItem = {
   _id: string;
@@ -30,6 +32,8 @@ type TestItem = {
   classLevel: string;
   subject: string;
   chapter?: string;
+  testType?: 'live' | 'practice';
+  mode?: 'live' | 'practice';
   duration: number;
   totalMarks: number;
   startTime: string;
@@ -52,6 +56,7 @@ type CreateTestPayload = {
   classLevel: string;
   subject: string;
   chapter: string;
+  testType: 'live' | 'practice';
   questions: string[];
   duration: number;
   totalMarks: number;
@@ -65,7 +70,8 @@ const INITIAL_FORM: CreateTestPayload = {
   description: '',
   classLevel: '10',
   subject: 'Math',
-  chapter: '',
+  chapter: 'Full Syllabus',
+  testType: 'live',
   questions: [],
   duration: 30,
   totalMarks: 0,
@@ -90,16 +96,24 @@ export default function AdminTestsManager() {
   const [search, setSearch] = useState('');
   const [filterClass, setFilterClass] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const LIMIT = 20;
 
   const loadData = async () => {
     setIsLoading(true);
     setError('');
     try {
+      const TEST_PARAMS: Record<string, any> = { page, limit: LIMIT };
+      if (filterClass) TEST_PARAMS.classLevel = filterClass;
+      if (search) TEST_PARAMS.search = search;
+
       const [testsRes, questionsRes] = await Promise.all([
-        axiosInstance.get('/tests'),
-        axiosInstance.get('/questions'),
+        axiosInstance.get('/tests', { params: TEST_PARAMS }),
+        axiosInstance.get('/questions', { params: { nopagination: 'true' } }),
       ]);
       setTests((testsRes.data.tests || []) as TestItem[]);
+      setTotalPages(testsRes.data.totalPages || 1);
       setQuestions((questionsRes.data.questions || []) as QuestionItem[]);
     } catch (err) {
       setError('System refresh failed.');
@@ -108,29 +122,40 @@ export default function AdminTestsManager() {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    setPage(1);
+  }, [filterClass, search]);
 
-  const filteredTests = useMemo(() => {
-    return tests.filter(test => {
-      const matchesSearch = !search || test.title.toLowerCase().includes(search.toLowerCase());
-      const matchesClass = !filterClass || test.classLevel === filterClass;
-      return matchesSearch && matchesClass;
-    });
-  }, [tests, search, filterClass]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadData();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [page, filterClass, search]);
+
+  const filteredTests = tests;
 
   const filteredQuestions = useMemo(() => {
     const q = questionSearch.trim().toLowerCase();
     return questions
       .filter(item => item.classLevel === form.classLevel && item.subject === form.subject)
-      .filter(item => (form.chapter ? (item.chapter || '') === form.chapter : true))
+      .filter(item => {
+        // Exclude questions not matching chapter, unless test is Full Syllabus or Mix Chapters
+        if (form.chapter === 'Full Syllabus' || form.chapter === 'Mix Chapters') return true;
+        return (item.chapter || '') === form.chapter;
+      })
       .filter(item => (q ? item.questionText.toLowerCase().includes(q) : true))
       .slice(0, 50);
   }, [questions, form.classLevel, form.subject, form.chapter, questionSearch]);
 
-  const chapters = useMemo(() => {
-    const set = new Set(questions.filter(q => q.classLevel === form.classLevel && q.subject === form.subject).map(q => (q.chapter || '').trim()).filter(Boolean));
-    return Array.from(set).sort();
-  }, [questions, form.classLevel, form.subject]);
+  const activeChapterOptions = useMemo(() => {
+    let base = ['Full Syllabus', 'Mix Chapters'];
+    const classSyllabus = SYLLABUS[form.classLevel];
+    if (classSyllabus && classSyllabus[form.subject]) {
+      base = [...base, ...classSyllabus[form.subject]];
+    }
+    return base;
+  }, [form.classLevel, form.subject]);
 
   const toggleQuestion = (id: string) => {
     setForm(p => {
@@ -187,7 +212,8 @@ export default function AdminTestsManager() {
           description: full.description || '',
           classLevel: full.classLevel,
           subject: full.subject,
-          chapter: full.chapter || '',
+          chapter: full.chapter || 'Full Syllabus',
+          testType: full.testType || 'live',
           questions: full.questions || [],
           duration: full.duration,
           totalMarks: full.totalMarks,
@@ -225,6 +251,7 @@ export default function AdminTestsManager() {
     try {
       const payload = {
         ...form,
+        mode: form.testType,
         totalMarks: form.questions.length,
         startTime: new Date(form.startTime).toISOString(),
         endTime: new Date(form.endTime).toISOString(),
@@ -274,30 +301,30 @@ export default function AdminTestsManager() {
 
   return (
     <div className="space-y-8 min-h-screen">
-      
+
       {/* Dynamic Header */}
       <section className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-2">
         <div className="space-y-1">
           <div className="flex items-center gap-3">
-             {(view !== 'list') && (
-               <button 
+            {(view !== 'list') && (
+              <button
                 onClick={() => setView('list')}
                 className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-900 transition-all active:scale-90"
-               >
-                 <X size={24} />
-               </button>
-             )}
-             <h1 className="text-3xl md:text-5xl font-extrabold text-slate-900 tracking-tight">Examination Hub</h1>
+              >
+                <X size={24} />
+              </button>
+            )}
+            <h1 className="text-3xl md:text-5xl font-extrabold text-slate-900 tracking-tight">Examination Hub</h1>
           </div>
           <p className="text-slate-500 font-medium ml-1">
-            {view === 'list' ? 'Coordinate test schedules and content selection.' : 
-             view === 'create' ? 'Initialize a new examination protocol.' : 'Modify existing protocol parameters.'}
+            {view === 'list' ? 'Coordinate test schedules and content selection.' :
+              view === 'create' ? 'Initialize a new examination protocol.' : 'Modify existing protocol parameters.'}
           </p>
         </div>
-        
+
         {view === 'list' && (
           <div className="flex items-center gap-3 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit">
-            <button 
+            <button
               onClick={startCreate}
               className="p-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all flex items-center gap-2 font-bold text-xs"
               title="Compose New Test"
@@ -322,7 +349,7 @@ export default function AdminTestsManager() {
 
       <AnimatePresence mode="wait">
         {view === 'list' ? (
-          <motion.div 
+          <motion.div
             key="list"
             initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }}
             className="space-y-8"
@@ -331,14 +358,14 @@ export default function AdminTestsManager() {
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
               <div className="md:col-span-12 lg:col-span-8 relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-                <input 
-                  type="text" placeholder="Search test protocol title..." 
+                <input
+                  type="text" placeholder="Search test protocol title..."
                   value={search} onChange={e => setSearch(e.target.value)}
                   className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-[28px] focus:ring-4 focus:ring-orange-500/10 focus:border-brand-orange transition-all font-medium"
                 />
               </div>
               <div className="md:col-span-12 lg:col-span-4 relative">
-                <div 
+                <div
                   onClick={() => setIsFilterOpen(!isFilterOpen)}
                   className={`flex items-center justify-between px-6 py-4 bg-white border rounded-[28px] cursor-pointer transition-all ${filterClass ? 'border-brand-orange bg-orange-50/30' : 'border-slate-200 hover:border-slate-300'}`}
                 >
@@ -355,20 +382,20 @@ export default function AdminTestsManager() {
                   {isFilterOpen && (
                     <>
                       <div className="fixed inset-0 z-20" onClick={() => setIsFilterOpen(false)} />
-                      <motion.div 
+                      <motion.div
                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
                         className="absolute left-0 right-0 mt-2 bg-white border border-slate-100 rounded-[28px] shadow-2xl p-2 z-30 grid grid-cols-2 gap-1"
                       >
-                        <button 
+                        <button
                           onClick={() => { setFilterClass(''); setIsFilterOpen(false); }}
                           className={`col-span-2 px-4 py-3 text-left rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${!filterClass ? 'bg-slate-900 text-white' : 'hover:bg-slate-50 text-slate-500'}`}
                         >
                           All Classes
                         </button>
-                        {['6','7','8','9','10'].map(c => (
-                          <button 
+                        {['6', '7', '8', '9', '10'].map(c => (
+                          <button
                             key={c}
                             onClick={() => { setFilterClass(c); setIsFilterOpen(false); }}
                             className={`px-4 py-3 text-left rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${filterClass === c ? 'bg-brand-orange text-white' : 'hover:bg-slate-50 text-slate-500'}`}
@@ -385,21 +412,21 @@ export default function AdminTestsManager() {
 
             {/* Test Feed */}
             {isLoading ? (
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
                 {[...Array(6)].map((_, i) => <div key={i} className="h-64 bg-white rounded-[40px] border border-slate-100" />)}
-               </div>
+              </div>
             ) : filteredTests.length === 0 ? (
-               <div className="py-24 text-center bg-white rounded-[50px] border border-slate-100 border-dashed">
-                  <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center text-slate-200 mx-auto mb-6"><FileText size={40} /></div>
-                  <h3 className="text-xl font-bold text-slate-900 mb-1">No Protocols Registered</h3>
-                  <p className="text-slate-400 font-medium max-w-xs mx-auto text-sm">Clear your search parameters or initialize a new examination protocol.</p>
-               </div>
+              <div className="py-24 text-center bg-white rounded-[50px] border border-slate-100 border-dashed">
+                <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center text-slate-200 mx-auto mb-6"><FileText size={40} /></div>
+                <h3 className="text-xl font-bold text-slate-900 mb-1">No Protocols Registered</h3>
+                <p className="text-slate-400 font-medium max-w-xs mx-auto text-sm">Clear your search parameters or initialize a new examination protocol.</p>
+              </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredTests.map((test, i) => (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
-                    key={test._id} 
+                    key={test._id}
                     onClick={() => setSelectedTest(test)}
                     className="bg-white p-5 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-slate-200/40 transition-all group relative overflow-hidden cursor-pointer"
                   >
@@ -407,6 +434,9 @@ export default function AdminTestsManager() {
                       <div className="flex flex-wrap gap-1.5">
                         <span className={`px-2 py-0.5 text-[7px] font-black uppercase tracking-widest rounded-md ${test.status === 'published' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
                           {test.status}
+                        </span>
+                        <span className={`px-2 py-0.5 text-[7px] font-black uppercase tracking-widest rounded-md ${test.testType === 'practice' ? 'bg-indigo-50 text-indigo-600' : 'bg-rose-50 text-rose-600'}`}>
+                          {test.testType === 'practice' ? 'Practice' : 'Live'}
                         </span>
                         <span className="px-2 py-0.5 bg-slate-50 text-slate-500 text-[7px] font-black uppercase tracking-widest rounded-md">{test.subject}</span>
                         <span className="px-2 py-0.5 bg-orange-50 text-brand-orange text-[7px] font-black uppercase tracking-widest rounded-md">Class {test.classLevel}</span>
@@ -419,7 +449,7 @@ export default function AdminTestsManager() {
                         <button onClick={() => onDeleteTest(test._id)} className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={14} /></button>
                       </div>
                     </div>
-                    
+
                     <h3 className="text-sm font-bold text-slate-800 leading-snug mb-4 line-clamp-2" title={test?.title || ''}>
                       {test?.title || 'Examination Protocol'}
                     </h3>
@@ -444,95 +474,124 @@ export default function AdminTestsManager() {
                 ))}
               </div>
             )}
+
+            {/* Pagination Controls */}
+            {view === 'list' && totalPages > 1 && (
+              <div className="mt-12 flex items-center justify-center gap-4">
+                <button
+                  disabled={page <= 1 || isLoading}
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  className="px-6 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all shadow-sm flex items-center gap-2"
+                >
+                  <ChevronRight className="rotate-180" size={16} />
+                  Prev
+                </button>
+                <div className="px-6 py-3 bg-slate-900 text-white rounded-2xl text-xs font-black tabular-nums shadow-lg">
+                  {page} / {totalPages}
+                </div>
+                <button
+                  disabled={page >= totalPages || isLoading}
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  className="px-6 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all shadow-sm flex items-center gap-2"
+                >
+                  Next
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
           </motion.div>
         ) : (
-          <motion.div 
+          <motion.div
             key="editor"
             initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
             className="max-w-4xl mx-auto w-full"
           >
-             <div className="bg-white rounded-[50px] border border-slate-100 shadow-sm overflow-hidden">
-                <div className="p-10 border-b border-slate-50 bg-slate-50/30 flex items-center justify-between">
-                   <div>
-                     <h2 className="text-2xl font-black text-slate-900">{editId ? 'Edit Protocol' : 'Manual Setup'}</h2>
-                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Examination Hub</p>
-                   </div>
-                   <button onClick={() => setView('list')} className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-slate-400 hover:text-slate-900 shadow-sm transition-all active:scale-95">
-                      <X size={20} />
-                   </button>
+            <div className="bg-white rounded-[50px] border border-slate-100 shadow-sm overflow-hidden">
+              <div className="p-10 border-b border-slate-50 bg-slate-50/30 flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900">{editId ? 'Edit Protocol' : 'Manual Setup'}</h2>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Examination Hub</p>
+                </div>
+                <button onClick={() => setView('list')} className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-slate-400 hover:text-slate-900 shadow-sm transition-all active:scale-95">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={onCreateTest} className="p-10 space-y-10">
+                <div className="space-y-6">
+                  <Input label="Protocol Title" value={form.title} onChange={v => setForm(p => ({ ...p, title: v }))} required />
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <Select label="Target Class" value={form.classLevel} options={['6', '7', '8', '9', '10']} onChange={v => setForm(p => ({ ...p, classLevel: v, questions: [] }))} />
+                    <Select label="Domain" value={form.subject} options={['Math', 'Science']} onChange={v => setForm(p => ({ ...p, subject: v, questions: [] }))} />
+                    <Select label="Status" value={form.status} options={['draft', 'published']} onChange={v => setForm(p => ({ ...p, status: v as any }))} />
+                    <Input label="Duration (min)" type="number" value={String(form.duration)} onChange={handleDurationChange} required min={1} />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Select label="Chapter Assignment" value={form.chapter} options={activeChapterOptions} onChange={v => setForm(p => ({ ...p, chapter: v, questions: [] }))} />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Input label="Launch Window" type="datetime-local" value={form.startTime} onChange={handleStartTimeChange} required />
+                    <Input label="Expiry Window" type="datetime-local" value={form.endTime} onChange={v => setForm(p => ({ ...p, endTime: v }))} required />
+                  </div>
+
+                  {/* Targeted Question Picker */}
+                  <div className="pt-8 border-t border-slate-50 space-y-6">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div>
+                        <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">Targeted Content Selection</h4>
+                        <p className="text-[10px] font-bold text-brand-orange mt-1">Capturing {form.questions.length} queries • {form.totalMarks} Total Marks</p>
+                      </div>
+                      <div className="relative w-full md:w-64">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                        <input
+                          type="text" placeholder="Filter bank..." value={questionSearch} onChange={e => setQuestionSearch(e.target.value)}
+                          className="w-full pl-9 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:bg-white focus:border-brand-orange transition-all text-xs font-medium"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                      {filteredQuestions.map(q => {
+                        const isSelected = form.questions.includes(q._id);
+                        return (
+                          <button
+                            key={q._id} type="button" onClick={() => toggleQuestion(q._id)}
+                            className={`text-left p-4 rounded-2xl border transition-all flex items-start gap-4 ${isSelected ? 'bg-orange-50/50 border-brand-orange/30 shadow-sm' : 'bg-white border-slate-100 hover:border-slate-300 shadow-sm'}`}
+                          >
+                            <div className={`w-5 h-5 rounded-md border flex items-center justify-center mt-0.5 transition-all ${isSelected ? 'bg-brand-orange border-brand-orange text-white' : 'border-slate-200 bg-white'}`}>
+                              {isSelected && <Check size={12} />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-slate-700 leading-relaxed mb-1 capitalize">{q.questionText}</p>
+                              <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">{q.chapter || 'GENERAL'} • {q.difficulty}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
 
-                <form onSubmit={onCreateTest} className="p-10 space-y-10">
-                   <div className="space-y-6">
-                      <Input label="Protocol Title" value={form.title} onChange={v => setForm(p => ({...p, title: v}))} required />
-                      
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <Select label="Target Class" value={form.classLevel} options={['6','7','8','9','10']} onChange={v => setForm(p => ({...p, classLevel: v, questions: []}))} />
-                        <Select label="Domain" value={form.subject} options={['Math','Science']} onChange={v => setForm(p => ({...p, subject: v, questions: []}))} />
-                        <Select label="Status" value={form.status} options={['draft','published']} onChange={v => setForm(p => ({...p, status: v as any}))} />
-                        <Input label="Duration (min)" type="number" value={String(form.duration)} onChange={handleDurationChange} required min={1} />
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <Input label="Launch Window" type="datetime-local" value={form.startTime} onChange={handleStartTimeChange} required />
-                        <Input label="Expiry Window" type="datetime-local" value={form.endTime} onChange={v => setForm(p => ({...p, endTime: v}))} required />
-                      </div>
-
-                      {/* Targeted Question Picker */}
-                      <div className="pt-8 border-t border-slate-50 space-y-6">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                           <div>
-                              <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">Targeted Content Selection</h4>
-                              <p className="text-[10px] font-bold text-brand-orange mt-1">Capturing {form.questions.length} queries • {form.totalMarks} Total Marks</p>
-                           </div>
-                           <div className="relative w-full md:w-64">
-                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
-                              <input 
-                                type="text" placeholder="Filter bank..." value={questionSearch} onChange={e => setQuestionSearch(e.target.value)}
-                                className="w-full pl-9 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:bg-white focus:border-brand-orange transition-all text-xs font-medium" 
-                              />
-                           </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                           {filteredQuestions.map(q => {
-                             const isSelected = form.questions.includes(q._id);
-                             return (
-                               <button 
-                                 key={q._id} type="button" onClick={() => toggleQuestion(q._id)}
-                                 className={`text-left p-4 rounded-2xl border transition-all flex items-start gap-4 ${isSelected ? 'bg-orange-50/50 border-brand-orange/30 shadow-sm' : 'bg-white border-slate-100 hover:border-slate-300 shadow-sm'}`}
-                               >
-                                 <div className={`w-5 h-5 rounded-md border flex items-center justify-center mt-0.5 transition-all ${isSelected ? 'bg-brand-orange border-brand-orange text-white' : 'border-slate-200 bg-white'}`}>
-                                    {isSelected && <Check size={12} />}
-                                 </div>
-                                 <div className="flex-1 min-w-0">
-                                   <p className="text-xs font-bold text-slate-700 leading-relaxed mb-1 capitalize">{q.questionText}</p>
-                                   <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">{q.chapter || 'GENERAL'} • {q.difficulty}</span>
-                                 </div>
-                               </button>
-                             );
-                           })}
-                        </div>
-                      </div>
-                   </div>
-
-                   <div className="flex flex-col md:flex-row gap-4 pt-4">
-                      <button 
-                        type="submit" disabled={isCreating || form.questions.length === 0}
-                        className="flex-1 flex items-center justify-center gap-3 py-5 bg-slate-900 text-white rounded-[28px] font-bold shadow-xl shadow-slate-200 hover:brightness-110 disabled:opacity-50 transition-all uppercase tracking-widest text-xs"
-                      >
-                        {isCreating ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Database size={16} />}
-                        {editId ? 'Commit Changes' : 'Initialize Protocol'}
-                      </button>
-                      <button 
-                        type="button" onClick={() => setView('list')}
-                        className="py-5 px-10 bg-slate-50 text-slate-500 rounded-[28px] font-bold hover:bg-slate-100 transition-all uppercase tracking-widest text-xs"
-                      >
-                         Discard
-                      </button>
-                   </div>
-                </form>
-             </div>
+                <div className="flex flex-col md:flex-row gap-4 pt-4">
+                  <button
+                    type="submit" disabled={isCreating || form.questions.length === 0}
+                    className="flex-1 flex items-center justify-center gap-3 py-5 bg-slate-900 text-white rounded-[28px] font-bold shadow-xl shadow-slate-200 hover:brightness-110 disabled:opacity-50 transition-all uppercase tracking-widest text-xs"
+                  >
+                    {isCreating ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Database size={16} />}
+                    {editId ? 'Commit Changes' : 'Initialize Protocol'}
+                  </button>
+                  <button
+                    type="button" onClick={() => setView('list')}
+                    className="py-5 px-10 bg-slate-50 text-slate-500 rounded-[28px] font-bold hover:bg-slate-100 transition-all uppercase tracking-widest text-xs"
+                  >
+                    Discard
+                  </button>
+                </div>
+              </form>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -541,12 +600,12 @@ export default function AdminTestsManager() {
       <AnimatePresence>
         {selectedTest && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setSelectedTest(null)}
-              className="absolute inset-0 bg-slate-900/40 backdrop-blur-md" 
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-md"
             />
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }}
               className="relative w-full max-w-2xl bg-white rounded-[40px] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col font-outfit"
             >
@@ -558,7 +617,7 @@ export default function AdminTestsManager() {
                   <span className="px-3 py-1 bg-slate-50 text-slate-500 text-[9px] font-black uppercase tracking-widest rounded-lg">{selectedTest.subject}</span>
                   <span className="px-3 py-1 bg-orange-50 text-brand-orange text-[9px] font-black uppercase tracking-widest rounded-lg">Class {selectedTest.classLevel}</span>
                 </div>
-                <button 
+                <button
                   onClick={() => setSelectedTest(null)}
                   className="p-2 bg-slate-50 rounded-2xl text-slate-400 hover:text-slate-900 transition-all"
                 >
@@ -590,31 +649,31 @@ export default function AdminTestsManager() {
                 </div>
 
                 <div className="pt-6 border-t border-slate-50 flex items-center justify-between">
-                   <div className="flex items-center gap-3">
-                     <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center">
-                        <Database size={20} />
-                     </div>
-                     <div>
-                       <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Active Repository</p>
-                       <p className="text-sm font-bold text-slate-900">Questions Loaded</p>
-                     </div>
-                   </div>
-                   <button 
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center">
+                      <Database size={20} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Active Repository</p>
+                      <p className="text-sm font-bold text-slate-900">Questions Loaded</p>
+                    </div>
+                  </div>
+                  <button
                     onClick={() => { startEdit(selectedTest); setSelectedTest(null); }}
                     className="px-6 py-3 bg-slate-50 text-slate-900 rounded-xl font-black uppercase tracking-widest text-[9px] hover:bg-slate-100 transition-all"
-                   >
-                     Initialize Registry Editor
-                   </button>
+                  >
+                    Initialize Registry Editor
+                  </button>
                 </div>
               </div>
 
               <div className="p-8 pt-0 mt-auto">
-                 <button 
+                <button
                   onClick={() => setSelectedTest(null)}
                   className="w-full py-4 bg-slate-900 text-white rounded-[28px] font-bold text-sm shadow-xl shadow-slate-200 hover:brightness-110 flex items-center justify-center gap-2 transition-all"
-                 >
-                   Return to Registry
-                 </button>
+                >
+                  Return to Registry
+                </button>
               </div>
             </motion.div>
           </div>
@@ -628,24 +687,55 @@ function Input({ label, value, onChange, type = 'text', required, min }: { label
   return (
     <div className="space-y-1.5 flex-1 w-full">
       <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">{label}</label>
-      <input 
+      <input
         type={type} value={value} onChange={e => onChange(e.target.value)} required={required} min={min}
-        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-orange-500/10 focus:bg-white focus:border-brand-orange transition-all font-medium text-slate-900 text-sm" 
+        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-orange-500/10 focus:bg-white focus:border-brand-orange transition-all font-medium text-slate-900 text-sm"
       />
     </div>
   );
 }
 
-function Select({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (v: string) => void }) {
+function Select({ label, value, options, onChange, labels }: { label: string; value: string; options: string[]; onChange: (v: string) => void; labels?: string[] }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const displayValue = labels ? labels[options.indexOf(value)] || value : value;
+
   return (
-    <div className="space-y-1.5 flex-1">
+    <div className="space-y-1.5 flex-1 relative">
       <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">{label}</label>
-      <select 
-        value={value} onChange={e => onChange(e.target.value)} 
-        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-4 focus:ring-orange-500/10 focus:bg-white focus:border-brand-orange transition-all font-bold text-slate-900 text-sm appearance-none"
+      <div 
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus-within:ring-4 focus-within:ring-orange-500/10 hover:border-brand-orange/30 transition-all cursor-pointer flex items-center justify-between"
       >
-        {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-      </select>
+        <span className="font-bold text-slate-900 text-sm whitespace-nowrap overflow-hidden text-ellipsis uppercase tracking-tight">
+          {displayValue}
+        </span>
+        <ChevronDown size={14} className={`text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </div>
+
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            <div className="fixed inset-0 z-[60]" onClick={() => setIsOpen(false)} />
+            <motion.div
+              initial={{ opacity: 0, y: 8, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.95 }}
+              className="absolute left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-2xl z-[70] p-1.5 min-w-[120px]"
+            >
+              {options.map((opt, i) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => { onChange(opt); setIsOpen(false); }}
+                  className={`w-full px-4 py-2.5 text-left rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${value === opt ? 'bg-slate-900 text-white' : 'hover:bg-slate-50 text-slate-500'}`}
+                >
+                  {labels ? labels[i] : opt}
+                </button>
+              ))}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

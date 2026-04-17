@@ -16,6 +16,11 @@ const testSchema = new mongoose.Schema(
       enum: ['live', 'practice'],
       default: 'live',
     },
+    // mode: {
+    //   type: String,
+    //   enum: ['live', 'practice'],
+    //   default: 'live',
+    // },
     classLevel: {
       type: String,
       required: [true, 'Class level is required'],
@@ -58,14 +63,14 @@ const testSchema = new mongoose.Schema(
     startTime: {
       type: Date,
       required: [
-        function() { return this.testType === 'live'; },
+        function () { return this.testType === 'live'; },
         'Start time is required for live tests'
       ],
     },
     endTime: {
       type: Date,
       required: [
-        function() { return this.testType === 'live'; },
+        function () { return this.testType === 'live'; },
         'End time is required for live tests'
       ],
       validate: {

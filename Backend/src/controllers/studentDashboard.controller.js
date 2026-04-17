@@ -26,7 +26,7 @@ export const getStudentDashboard = async (req, res) => {
 
     //  Fetch all attempts for this student
     const attempts = await Attempt.find({ student: req.user._id })
-      .populate({ path: 'test', select: 'title endTime' })
+      .populate({ path: 'test', select: 'title endTime mode testType' })
       .sort({ createdAt: -1 })
       .lean();
 
@@ -38,10 +38,13 @@ export const getStudentDashboard = async (req, res) => {
     //  Calculate stats
     const completedTestsCount = attempts.length;
 
-    // Average score should only be visible after a test ends (backend-enforced)
-    const endedAttempts = attempts.filter(
-      (a) => a.test && a.test.endTime && now > new Date(a.test.endTime)
-    );
+    // Average score should only be visible after a test ends (live) or immediately (practice)
+    const endedAttempts = attempts.filter((a) => {
+      if (!a.test) return false;
+      const isPractice = a.test.mode === 'practice' || a.test.testType === 'practice';
+      const hasEnded = a.test.endTime && now > new Date(a.test.endTime);
+      return isPractice || hasEnded;
+    });
     const endedCount = endedAttempts.length;
     const totalScore = endedAttempts.reduce((acc, current) => acc + (current.score || 0), 0);
     const averageScore = endedCount > 0 ? Number((totalScore / endedCount).toFixed(2)) : null;
@@ -51,11 +54,11 @@ export const getStudentDashboard = async (req, res) => {
       attemptId: attempt._id,
       testTitle: attempt.test ? attempt.test.title : 'Deleted Test',
       score:
-        attempt.test && attempt.test.endTime && now > new Date(attempt.test.endTime)
+        attempt.test && (attempt.test.mode === 'practice' || attempt.test.testType === 'practice' || (attempt.test.endTime && now > new Date(attempt.test.endTime)))
           ? attempt.score
           : null,
       totalQuestions:
-        attempt.test && attempt.test.endTime && now > new Date(attempt.test.endTime)
+        attempt.test && (attempt.test.mode === 'practice' || attempt.test.testType === 'practice' || (attempt.test.endTime && now > new Date(attempt.test.endTime)))
           ? attempt.totalQuestions
           : null,
       submittedAt: attempt.createdAt,
@@ -67,19 +70,20 @@ export const getStudentDashboard = async (req, res) => {
       status: 'published',
       startTime: { $lte: now },
       endTime: { $gt: now },
+      mode: { $ne: 'practice' }, // Dashboard available card is for LIVE tests
       _id: { $nin: attemptedTestIds },
     })
-      .select('title subject chapter duration totalMarks startTime endTime')
+      .select('title subject chapter duration totalMarks startTime endTime description')
       .sort({ startTime: 1 })
       .lean();
 
-    // Upcoming tests
     const upcomingTests = await Test.find({
       classLevel: req.user.classLevel,
       status: 'published',
       startTime: { $gt: now },
+      mode: { $ne: 'practice' },
     })
-      .select('title subject chapter duration totalMarks startTime endTime')
+      .select('title subject chapter duration totalMarks startTime endTime description')
       .sort({ startTime: 1 })
       .lean();
 

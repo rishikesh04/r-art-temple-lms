@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import axiosInstance from '../../utils/axiosInstance';
 import { getApiMessage } from '../../utils/apiMessage';
+import { ChevronRight } from 'lucide-react';
 import {
   ListShell,
   PremiumStrip,
@@ -13,6 +14,9 @@ import {
 
 type MyAttemptsResponse = {
   success: boolean;
+  totalCount: number;
+  totalPages: number;
+  currentPage: number;
   attempts: Array<{
     id: string;
     test?: { _id?: string; title?: string; subject?: string; classLevel?: string; totalMarks?: number } | null;
@@ -32,12 +36,12 @@ function filterAttempts(
 }
 
 export default function MyAttemptsPage() {
-  const [subject, setSubject] = useState<SubjectFilter>('All');
+  const [page, setPage] = useState(1);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['myAttempts'],
+    queryKey: ['myAttempts', page],
     queryFn: async () => {
-      const res = await axiosInstance.get('/attempts/my-attempts');
+      const res = await axiosInstance.get('/attempts/my-attempts', { params: { page, limit: 10 } });
       return res.data as MyAttemptsResponse;
     },
   });
@@ -102,6 +106,28 @@ export default function MyAttemptsPage() {
             );
           })}
         </motion.div>
+      )}
+
+      {data?.success && data.totalPages > 1 && (
+        <div className="mt-8 flex items-center justify-center gap-3">
+          <button
+            disabled={page <= 1 || isLoading}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            className="flex h-10 items-center justify-center rounded-xl bg-white px-4 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm transition-all hover:bg-slate-50 disabled:opacity-50"
+          >
+            Prev
+          </button>
+          <div className="flex h-10 items-center justify-center rounded-xl bg-slate-900 px-4 text-[10px] font-black text-white tabular-nums shadow-lg">
+            {page} / {data.totalPages}
+          </div>
+          <button
+            disabled={page >= data.totalPages || isLoading}
+            onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}
+            className="flex h-10 items-center justify-center rounded-xl bg-white px-4 text-[10px] font-black uppercase tracking-widest text-slate-500 shadow-sm transition-all hover:bg-slate-50 disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
       )}
     </ListShell>
   );

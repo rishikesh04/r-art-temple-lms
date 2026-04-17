@@ -95,13 +95,21 @@ const bulkCreateQuestions = async (req, res) => {
 // @access  Private
 const getAllQuestions = async (req, res) => {
   try {
-    const { classLevel, subject, chapter, difficulty } = req.query;
+    const { classLevel, subject, chapter, difficulty, search } = req.query;
 
     const filter = {};
     if (classLevel) filter.classLevel = classLevel;
     if (subject) filter.subject = subject;
     if (chapter) filter.chapter = chapter;
     if (difficulty) filter.difficulty = difficulty;
+
+    if (search) {
+      filter.$or = [
+        { questionText: { $regex: search, $options: 'i' } },
+        { chapter: { $regex: search, $options: 'i' } },
+        { options: { $regex: search, $options: 'i' } },
+      ];
+    }
 
     let query = Question.find(filter).sort({ createdAt: -1 });
 
@@ -110,11 +118,27 @@ const getAllQuestions = async (req, res) => {
       query = query.select('-correctAnswer -explanation');
     }
 
-    const questions = await query;
+    if (req.query.nopagination === 'true' && req.user.role === 'admin') {
+      const questions = await query.lean();
+      return res.status(200).json({
+        success: true,
+        count: questions.length,
+        questions,
+      });
+    }
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const totalCount = await Question.countDocuments(filter);
+    const questions = await query.skip(skip).limit(limit).lean();
 
     res.status(200).json({
       success: true,
-      count: questions.length,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      currentPage: page,
       questions,
     });
   } catch (error) {

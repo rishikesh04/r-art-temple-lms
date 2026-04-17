@@ -10,7 +10,7 @@ export const getTestLeaderboard = async (req, res) => {
 
     //  Find test
     const test = await Test.findById(testId).select(
-      'title subject classLevel totalMarks status endTime'
+      'title subject classLevel totalMarks status endTime mode'
     );
 
     if (!test) {
@@ -36,10 +36,11 @@ export const getTestLeaderboard = async (req, res) => {
         });
       }
     }
-     
-    // IMPORTANT: Students cannot see leaderboard before test ends
+
+    // IMPORTANT: Students cannot see leaderboard before test ends (unless practice test)
     const now = new Date();
-    if (req.user.role === 'student' && now < new Date(test.endTime)) {
+    const isPractice = test.mode === 'practice';
+    if (!isPractice && req.user.role === 'student' && now < new Date(test.endTime)) {
       return res.status(403).json({
         success: false,
         message: 'Leaderboard will be available after the test ends.',
@@ -52,7 +53,8 @@ export const getTestLeaderboard = async (req, res) => {
         score: -1,       // Higher score first
         timeTaken: 1,    // Lower time taken first
         createdAt: 1,    // Earlier submission first
-      });
+      })
+      .lean();
 
     //  Build leaderboard
     const leaderboard = attempts.map((attempt, index) => ({

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import axiosInstance from '../../utils/axiosInstance';
@@ -9,6 +9,7 @@ import {
   filterTestsBySubject,
   formatShortDate,
   getPhase,
+  getTimeRemaining,
   listContainer,
   type SubjectFilter,
 } from './StudentListPagesShared';
@@ -22,6 +23,7 @@ type TestListItem = {
   totalMarks: number;
   startTime: string;
   endTime: string;
+  description?: string;
 };
 
 type TestsListResponse = {
@@ -42,7 +44,9 @@ export default function UpcomingTestsPage() {
 
   const upcoming = useMemo(() => {
     if (!data?.tests) return [];
-    return data.tests.filter((t) => getPhase(t.startTime, t.endTime) === 'upcoming');
+    return data.tests
+      .filter((t) => getPhase(t.startTime, t.endTime) === 'upcoming')
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
   }, [data?.tests]);
 
   const filtered = useMemo(() => filterTestsBySubject(upcoming, subject), [upcoming, subject]);
@@ -81,9 +85,14 @@ export default function UpcomingTestsPage() {
                     {t.subject}
                     {t.chapter ? ` · ${t.chapter}` : ''}
                   </p>
-                  <p className="mt-2 text-[11px] font-medium uppercase tracking-wider text-[#ff5722]/90">
-                    Starts {formatShortDate(t.startTime)}
+                  <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-[#ff5722] bg-orange-50 inline-block px-2 py-0.5 rounded-md border border-orange-100">
+                    Starts {getTimeRemaining(t.startTime)}
                   </p>
+                  {t.description && (
+                    <p className="mt-3 text-[11px] font-medium text-slate-500 leading-relaxed italic border-l-2 border-orange-200 pl-3 italic-font">
+                      "{t.description}"
+                    </p>
+                  )}
                 </div>
                 <div className="shrink-0 text-right">
                   <p className="text-xs font-semibold text-slate-800">{t.duration} min</p>

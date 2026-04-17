@@ -18,6 +18,7 @@ export const createTest = async (req, res) => {
       endTime,
       status,
       testType,
+      mode,
     } = req.body;
 
     const newTest = await Test.create({
@@ -33,6 +34,7 @@ export const createTest = async (req, res) => {
       endTime,
       status,
       testType,
+      mode: mode || testType || 'live',
       createdBy: req.user._id,
     });
 
@@ -55,9 +57,13 @@ export const createTest = async (req, res) => {
 // @access  Private (Admin & Approved Students)
 export const getAllTests = async (req, res) => {
   try {
-    const { classLevel, subject, chapter, status } = req.query;
+    const { classLevel, subject, chapter, status, search } = req.query;
 
     const filter = {};
+
+    if (search) {
+      filter.title = { $regex: search, $options: 'i' };
+    }
 
     // Admin can filter freely
     if (req.user.role === 'admin') {
@@ -79,11 +85,22 @@ export const getAllTests = async (req, res) => {
       if (req.query.testType) filter.testType = req.query.testType;
     }
 
-    const tests = await Test.find(filter).sort({ createdAt: -1 });
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const totalCount = await Test.countDocuments(filter);
+    const tests = await Test.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
 
     res.status(200).json({
       success: true,
-      count: tests.length,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      currentPage: page,
       tests,
     });
   } catch (error) {
@@ -201,6 +218,8 @@ export const deleteTest = async (req, res) => {
   }
 };
 
+import Attempt from '../models/attempt.model.js';
+
 // @desc    Get tests grouped by structure for student dashboard
 // @route   GET /api/tests/structure
 // @access  Private
@@ -223,8 +242,20 @@ export const getTestsStructure = async (req, res) => {
     }
 
     const tests = await Test.find(filter)
-      .select('title classLevel subject chapter testType duration totalMarks startTime endTime createdAt')
+      .select('title classLevel subject chapter testType mode duration totalMarks startTime endTime createdAt')
       .lean();
+
+    let attemptMap = {};
+    if (req.user && req.user.role === 'student') {
+      const attempts = await Attempt.find({ student: req.user._id })
+        .sort({ createdAt: -1 })
+        .select('test _id')
+        .lean();
+      
+      attempts.forEach((att) => {
+        if (!attemptMap[att.test]) attemptMap[att.test] = att._id;
+      });
+    }
 
     // Grouping by Subject -> Chapter -> Type
     const structure = {};
@@ -237,7 +268,14 @@ export const getTestsStructure = async (req, res) => {
       if (!structure[subj]) structure[subj] = {};
       if (!structure[subj][chap]) structure[subj][chap] = { live: [], practice: [] };
 
-      structure[subj][chap][type].push(test);
+      // Attach attempt tracking naturally to payload
+      const testPayload = {
+        ...test,
+        hasAttempted: !!attemptMap[test._id],
+        latestAttemptId: attemptMap[test._id] || null,
+      };
+
+      structure[subj][chap][type].push(testPayload);
     });
 
     res.status(200).json({
