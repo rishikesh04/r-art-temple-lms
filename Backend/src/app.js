@@ -9,11 +9,13 @@ import authRoutes from './routes/auth.routes.js';
 import questionRoutes from './routes/question.routes.js';
 import testRoutes from './routes/test.routes.js';
 import attemptsRoutes from './routes/attempt.routes.js';
+import feedbackRoutes from './routes/feedback.routes.js';
 import leaderboardRoutes from './routes/leaderboard.routes.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import studentDashboardRoutes from './routes/studentDashboard.routes.js';
 import adminDashboardRoutes from  './routes/adminDashboard.routes.js';
 import testAttendanceRoutes from './routes/testAttendance.routes.js';
+import { protect, isAdmin } from './middlewares/auth.middleware.js';
 
 // Initialize Express app
 const app = express();
@@ -132,7 +134,8 @@ app.use('/api/leaderboard', leaderboardRoutes)
 app.use('/api/analytics', analyticsRoutes)
 
 //api for student dashboard 
-app.use('/api/student/dashboard', studentDashboardRoutes)
+app.use('/api/student/dashboard', studentDashboardRoutes);
+app.use('/api/feedback', feedbackRoutes);
 
 //api for admin dashboard 
 app.use('/api/admin/dashboard', adminDashboardRoutes)

@@ -3,7 +3,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import ProtectedRoute from './components/ProtectedRoute';
 import InstallPrompt from './components/InstallPrompt';
 import { useAuth } from './context/AuthContext';
-import { Menu, UserCircle, LogOut, ChevronDown, LogIn, UserPlus, LayoutDashboard, ClipboardList, BarChart3, Home as HomeIcon } from 'lucide-react';
+import { Menu, UserCircle, LogOut, ChevronDown, LogIn, UserPlus, LayoutDashboard, ClipboardList, BarChart3, Home as HomeIcon, HelpCircle } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Analytics } from "@vercel/analytics/react";
 
@@ -17,6 +17,7 @@ const AdminTestsManager = lazy(() => import('./pages/Admin/AdminTestsManager'));
 const AdminQuestionBank = lazy(() => import('./pages/Admin/AdminQuestionBank'));
 const AdminTestResults = lazy(() => import('./pages/Admin/AdminTestResults'));
 import ErrorBoundary from './components/ErrorBoundary';
+import FeedbackWidget from './components/FeedbackWidget';
 const StudentDashboard = lazy(() => import('./pages/Student/StudentDashboard'));
 const TestsList = lazy(() => import('./pages/Student/TestsList'));
 const TestStartPage = lazy(() => import('./pages/Student/TestStartPage'));
@@ -30,6 +31,7 @@ const PastTestsPage = lazy(() => import('./pages/Student/PastTestsPage'));
 const MyAttemptsPage = lazy(() => import('./pages/Student/MyAttemptsPage'));
 const PerformancePage = lazy(() => import('./pages/Student/PerformancePage'));
 const SubjectFoldersPage = lazy(() => import('./pages/Student/SubjectFoldersPage'));
+const FeedbackPage = lazy(() => import('./pages/Support/FeedbackPage'));
 
 function firstNameFromFullName(name: string) {
   const t = name.trim();
@@ -258,6 +260,13 @@ function App() {
                         >
                           <UserCircle size={18} /> Account Details
                         </button>
+                        <Link
+                          to="/feedback"
+                          onClick={() => setIsProfileOpen(false)}
+                          className="w-full flex items-center gap-3 px-4 py-3 font-medium text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left rounded-lg"
+                        >
+                          <HelpCircle size={18} /> Feedback
+                        </Link>
                         <button
                           type="button"
                           onClick={() => {
@@ -326,6 +335,14 @@ function App() {
                       >
                         Analytics
                         <BarChart3 size={18} />
+                      </Link>
+                      <Link
+                        to="/feedback"
+                        onClick={() => setIsMobileNavOpen(false)}
+                        className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3 font-semibold text-sm text-slate-800 shadow-sm bg-white"
+                      >
+                        Feedback
+                        <HelpCircle size={18} />
                       </Link>
                     </>
                   ) : null}
@@ -437,6 +454,11 @@ function App() {
             <Route path="/tests/:testId/leaderboard" element={
               <ProtectedRoute allowedRole="student">
                 <StudentLeaderboardPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/feedback" element={
+              <ProtectedRoute allowedRole="student">
+                <FeedbackPage />
               </ProtectedRoute>
             } />
 
