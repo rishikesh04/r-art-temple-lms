@@ -147,6 +147,13 @@ export const getTestById = async (req, res) => {
       });
     }
 
+    // Security: Block questions for students if it's an upcoming live test
+    if (req.user.role !== 'admin' && test.testType !== 'practice') {
+      if (new Date() < new Date(test.startTime)) {
+        test.questions = []; // Hide questions!
+      }
+    }
+
     res.status(200).json({
       success: true,
       test,

@@ -194,14 +194,20 @@ export default function TestStartPage() {
           transition={{ type: 'spring', stiffness: 380, damping: 32, delay: 0.15 }}
         >
           <div className="mx-auto max-w-lg md:max-w-2xl">
-            <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
-              <Link
-                to={`/tests/${test._id}/attempt`}
-                className="flex w-full items-center justify-center rounded-2xl bg-[#ff5722] py-4 text-base font-semibold tracking-tight text-white shadow-lg shadow-orange-500/35 ring-1 ring-white/20 transition hover:brightness-[1.03] md:py-3.5"
-              >
-                Start
-              </Link>
-            </motion.div>
+            {!isPractice && new Date() < new Date(test.startTime) ? (
+              <div className="flex w-full cursor-not-allowed items-center justify-center rounded-2xl bg-slate-200 py-4 text-base font-semibold tracking-tight text-slate-500 shadow-inner md:py-3.5">
+                Test starts on {formatDateTime(test.startTime)}
+              </div>
+            ) : (
+              <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+                <Link
+                  to={`/tests/${test._id}/attempt`}
+                  className="flex w-full items-center justify-center rounded-2xl bg-[#ff5722] py-4 text-base font-semibold tracking-tight text-white shadow-lg shadow-orange-500/35 ring-1 ring-white/20 transition hover:brightness-[1.03] md:py-3.5"
+                >
+                  Start
+                </Link>
+              </motion.div>
+            )}
           </div>
         </motion.div>
       ) : null}
