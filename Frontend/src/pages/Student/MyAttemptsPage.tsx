@@ -37,6 +37,7 @@ function filterAttempts(
 
 export default function MyAttemptsPage() {
   const [page, setPage] = useState(1);
+  const [subject, setSubject] = useState<SubjectFilter>('All');
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['myAttempts', page],
