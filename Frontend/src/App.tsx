@@ -5,6 +5,7 @@ import InstallPrompt from './components/InstallPrompt';
 import { useAuth } from './context/AuthContext';
 import { Menu, UserCircle, LogOut, ChevronDown, LogIn, UserPlus, LayoutDashboard, ClipboardList, BarChart3, Home as HomeIcon } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Analytics } from "@vercel/analytics/react";
 
 const Home = lazy(() => import('./pages/Home'));
 const Login = lazy(() => import('./pages/Login'));
@@ -456,6 +457,8 @@ function App() {
         </Suspense>
       </div>
       <InstallPrompt />
+
+      <Analytics />
     </div>
   );
 }
