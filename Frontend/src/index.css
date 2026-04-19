@@ -17,6 +17,42 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+svg, path, circle {
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+/* Custom Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* Remove all focus outlines from Recharts elements */
+.recharts-surface,
+.recharts-layer,
+.recharts-dot,
+circle {
+  outline: none !important;
+}
+
+/* Make dots easier to tap on mobile */
+@media (max-width: 640px) {
+  .recharts-dot {
+    r: 8 !important; /* Bigger tap target on mobile */
+  }
+}
+
 /* Soft shadows (utility names kept so existing classes update app-wide) */
 @utility shadow-solid {
   box-shadow:

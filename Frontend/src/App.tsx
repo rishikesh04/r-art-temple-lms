@@ -161,24 +161,53 @@ function App() {
                 </div>
 
                 <div className="flex items-center gap-3 md:gap-6">
-                  <div className="hidden md:flex gap-6 text-sm font-medium text-slate-600">
-                    {user && location.pathname === '/' && (
-                      <Link
-                        to={user.role === 'admin' ? '/admin' : '/dashboard'}
-                        className="w-10 h-10 inline-flex items-center justify-center rounded-xl bg-slate-100 border border-slate-200 text-brand-orange hover:bg-slate-900 hover:text-white transition-all shadow-sm"
-                      >
-                        <HomeIcon size={18} />
-                      </Link>
-                    )}
+                  <div className="hidden md:flex gap-1 text-sm font-semibold">
                     {user && (
-                      <NavLink
-                        to={user.role === 'admin' ? '/admin' : '/dashboard'}
-                        className={({ isActive }) =>
-                          `rounded-lg px-3 py-2 transition-colors ${isActive ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`
-                        }
-                      >
-                        Hub
-                      </NavLink>
+                      <>
+                        <NavLink
+                          to={user.role === 'admin' ? '/admin' : '/dashboard'}
+                          className={({ isActive }) =>
+                            `rounded-xl px-4 py-2.5 transition-all flex items-center gap-2 ${
+                              isActive 
+                                ? 'bg-[#ff5722] text-white shadow-lg shadow-orange-500/20' 
+                                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                            }`
+                          }
+                        >
+                          <LayoutDashboard size={18} />
+                          Hub
+                        </NavLink>
+                        {user.role === 'student' && (
+                          <>
+                            <NavLink
+                              to="/dashboard/performance"
+                              className={({ isActive }) =>
+                                `rounded-xl px-4 py-2.5 transition-all flex items-center gap-2 ${
+                                  isActive 
+                                    ? 'bg-[#ff5722] text-white shadow-lg shadow-orange-500/20' 
+                                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                                }`
+                              }
+                            >
+                              <BarChart3 size={18} />
+                              Analytics
+                            </NavLink>
+                            <NavLink
+                              to="/feedback"
+                              className={({ isActive }) =>
+                                `rounded-xl px-4 py-2.5 transition-all flex items-center gap-2 ${
+                                  isActive 
+                                    ? 'bg-[#ff5722] text-white shadow-lg shadow-orange-500/20' 
+                                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                                }`
+                              }
+                            >
+                              <HelpCircle size={18} />
+                              Feedback
+                            </NavLink>
+                          </>
+                        )}
+                      </>
                     )}
                   </div>
 

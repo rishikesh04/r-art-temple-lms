@@ -2,10 +2,10 @@ import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Flag, Target, Trophy, FileText, ChevronLeft, TrendingUp } from 'lucide-react';
+import { Flag, Target, Trophy, FileText, ChevronLeft, TrendingUp, Clock } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import axiosInstance from '../../utils/axiosInstance';
-import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { getApiMessage } from '../../utils/apiMessage';
 import Locked403 from '../../assets/403 Error Forbidden-pana.svg';
 import Review404 from '../../assets/Time management-rafiki.svg';
@@ -80,7 +80,7 @@ export default function AttemptResultPage() {
     queryKey: ['leaderboard', testId],
     enabled: Boolean(testId && (attemptData?.data?.mode === 'practice' || attemptData?.data?.testType === 'practice' || attemptData?.data?.mode === 'live' || attemptData?.data?.testType === 'live')),
     queryFn: async () => {
-      const res = await axiosInstance.get(`/tests/${testId}/leaderboard`);
+      const res = await axiosInstance.get(`/leaderboard/test/${testId}`);
       return res.data as LeaderboardResponse;
     },
   });
@@ -94,6 +94,38 @@ export default function AttemptResultPage() {
     },
   });
 
+  const attempt = attemptData?.data;
+  const lbInfo = lbData && lbData.success ? lbData : null;
+  const totalParticipants = lbInfo?.totalParticipants || 0;
+
+  // Global Stats Memo
+  const { topperScore, avgScore, myRank } = useMemo(() => {
+    let ts = attempt?.score || 0;
+    let as = attempt?.score || 0;
+    let mr = '-';
+
+    if (lbInfo && lbInfo.leaderboard.length > 0) {
+      const list = lbInfo.leaderboard;
+      ts = list[0].score;
+      const sum = list.reduce((a, b) => a + b.score, 0);
+      as = Number((sum / list.length).toFixed(2));
+
+      if (user) {
+        const match = list.find(r => r.studentId === user._id || (user as any).id === r.studentId);
+        if (match) mr = String(match.rank);
+      }
+    }
+    return { topperScore: ts, avgScore: as, myRank: mr };
+  }, [lbInfo, attempt?.score, user]);
+
+  const comparisonData = useMemo(() => {
+    return [
+      { name: 'Average', score: avgScore, color: '#fbbf24' },
+      { name: 'You', score: attempt?.score || 0, color: '#ff5722', isUser: true },
+      { name: 'Topper', score: topperScore, color: '#10b981' },
+    ];
+  }, [avgScore, attempt?.score, topperScore]);
+
   const trajectoryData = useMemo(() => {
     if (!allAttemptsData?.attempts || !testId) return [];
     const testAttempts = allAttemptsData.attempts
@@ -103,8 +135,8 @@ export default function AttemptResultPage() {
     return testAttempts.map((a: any) => ({
       name: `Att ${a.attemptNumber}`,
       fullScore: `${a.score} / ${a.totalQuestions}`,
-      score: a.score,
-      date: new Date(a.submittedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+      score: a.totalQuestions > 0 ? Math.round((a.score / a.totalQuestions) * 100) : 0,
+      id: a._id
     }));
   }, [allAttemptsData, testId]);
 
@@ -137,7 +169,7 @@ export default function AttemptResultPage() {
     );
   }
 
-  if (errText || !attemptData?.success) {
+  if (errText || (attemptData && !attemptData.success)) {
     return (
       <div className="min-h-[calc(100vh-88px)] bg-[#fafafa] flex flex-col items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden text-center">
@@ -162,7 +194,7 @@ export default function AttemptResultPage() {
               {(attemptData?.data?.mode === 'practice' || attemptData?.data?.testType === 'practice') && attemptData?.data?.testId && (
                 <button
                   type="button"
-                  onClick={() => navigate(`/tests/${attempt.testId}`)}
+                  onClick={() => navigate(`/tests/${attemptData.data.testId}`)}
                   className="px-6 py-3 rounded-xl bg-[#ff5722] text-white font-bold hover:brightness-105 transition-all shadow-md shadow-orange-500/20"
                 >
                   Retake Test
@@ -175,30 +207,13 @@ export default function AttemptResultPage() {
     );
   }
 
-  const attempt = attemptData.data;
-  const lbInfo = lbData && lbData.success ? lbData : null;
-  const totalParticipants = lbInfo?.totalParticipants || 0;
-
-  // Derivations
-  let myRank = '-';
-  let topperScore = attempt.score;
-  let avgScore = attempt.score;
-
-  if (lbInfo && lbInfo.leaderboard.length > 0) {
-    const list = lbInfo.leaderboard;
-    topperScore = list[0].score;
-    const sum = list.reduce((a, b) => a + b.score, 0);
-    avgScore = Number((sum / list.length).toFixed(2));
-
-    if (user) {
-      const match = list.find(r => r.studentId === user._id || (user as any).id === r.studentId);
-      if (match) {
-        myRank = String(match.rank);
-      } else {
-        const approx = list.find(r => r.score <= attempt.score);
-        if (approx && approx.score === attempt.score) myRank = String(approx.rank);
-      }
-    }
+  // Final fallback if data is somehow missing but no error was thrown
+  if (!attempt) {
+    return (
+      <div className="min-h-[calc(100vh-88px)] flex items-center justify-center bg-slate-50">
+        <div className="animate-spin h-8 w-8 border-4 border-[#ff5722] border-t-transparent rounded-full" />
+      </div>
+    );
   }
 
   let correctCount = 0;
@@ -212,9 +227,6 @@ export default function AttemptResultPage() {
   });
 
   const qsAttempted = correctCount + incorrectCount;
-
-  const barMax = Math.max(attempt.score, topperScore, avgScore) || 10;
-  const chartUpperBound = Math.ceil((barMax + 1) / 3) * 3;
 
 
 
@@ -372,63 +384,81 @@ export default function AttemptResultPage() {
             {/* Bar Chart Card (Live) or Trajectory (Practice) */}
             {(attempt.mode === 'live' || (attempt.testType === 'live' && attempt.mode !== 'practice')) ? (
               <div className="bg-white rounded-[1.75rem] shadow-[0_4px_20px_-4px_rgba(255,87,34,0.1)] outline outline-1 outline-[#ff5722]/10 overflow-hidden p-6 mt-2 relative hover:shadow-[0_8px_30px_-4px_rgba(255,87,34,0.15)] hover:outline-[#ff5722]/20 transition-all">
-                <div className="absolute top-5 left-5 z-20">
+                <div className="flex items-center justify-between mb-8">
                   <span className="px-3 py-1.5 outline outline-1 outline-[#ff5722]/20 bg-[#ff5722]/10 rounded-xl text-[10px] font-bold text-[#ff5722] uppercase tracking-widest shadow-sm">
-                    Score Distribution
+                    Performance Comparison
                   </span>
+                  {totalParticipants > 0 && (
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      {totalParticipants} Participants
+                    </span>
+                  )}
                 </div>
 
-                {/* Chart Area */}
-                <div className="mt-14 h-52 w-full relative flex items-end justify-around px-8 pb-8 pt-4">
-                  {/* Grid Lines */}
-                  <div className="absolute inset-0 flex flex-col justify-between pb-8 z-0">
-                    <div className="w-full border-t border-slate-200"></div>
-                    <div className="w-full border-t border-slate-200"></div>
-                    <div className="w-full border-t border-slate-200"></div>
-                    <div className="w-full border-t border-slate-900 border-b-0 h-px transform translate-y-px"></div>
+                {!lbInfo ? (
+                  <div className="h-52 flex flex-col items-center justify-center text-center px-4">
+                    <div className="h-10 w-10 rounded-full bg-slate-50 flex items-center justify-center mb-2">
+                      <Clock size={20} className="text-slate-300" />
+                    </div>
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+                      Comparison will be available<br />after the test ends
+                    </p>
                   </div>
+                ) : (
+                  <div className="h-52 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={comparisonData} margin={{ top: 20, right: 30, left: -20, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis 
+                          dataKey="name" 
+                          axisLine={false} 
+                          tickLine={false} 
+                          tick={{ fontSize: 12, fontWeight: 700, fill: '#64748b' }}
+                          dy={10}
+                        />
+                        <YAxis 
+                          axisLine={false} 
+                          tickLine={false} 
+                          tick={{ fontSize: 11, fontWeight: 600, fill: '#94a3b8' }}
+                          domain={[0, attempt?.totalQuestions || 'dataMax + 5']}
+                        />
+                        <RechartsTooltip 
+                          cursor={{ fill: '#f8fafc' }}
+                          contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)', padding: '12px 16px' }}
+                          labelStyle={{ display: 'none' }}
+                          itemStyle={{ fontWeight: 800, fontSize: '14px', color: '#1e293b' }}
+                          formatter={(value: any) => [`${value} Points`, 'Score']}
+                        />
+                        <Bar 
+                          dataKey="score" 
+                          radius={[10, 10, 0, 0]} 
+                          barSize={40}
+                          animationDuration={1500}
+                        >
+                          {comparisonData.map((entry, index) => (
+                            <Cell 
+                              key={`cell-${index}`} 
+                              fill={entry.color}
+                              fillOpacity={entry.isUser ? 1 : 0.6}
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
 
-                  {/* Y Axis Labels */}
-                  <div className="absolute left-0 top-0 bottom-8 flex flex-col justify-between py-0 z-0">
-                    <span className="text-[10px] font-bold text-slate-400 absolute -top-2 w-4 text-right transform -translate-y-1/2">{chartUpperBound}</span>
-                    <span className="text-[10px] font-bold text-slate-400 absolute top-1/2 w-4 text-right transform -translate-y-1/2">{Math.floor(chartUpperBound * 0.5)}</span>
-                    <span className="text-[10px] font-bold text-slate-400 absolute bottom-0 w-4 text-right transform translate-y-1/2">0</span>
+                {lbInfo && (
+                  <div className="mt-4 pt-4 border-t border-slate-50 flex items-center justify-between">
+                     <div className="flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full bg-[#ff5722]"></div>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Your Position: #{myRank}</span>
+                     </div>
+                     <div className="text-[10px] font-black text-[#ff5722] uppercase tracking-widest">
+                        Dynamic Test Analytics
+                     </div>
                   </div>
-
-                  {/* Bars */}
-                  <div className="relative z-10 flex flex-col items-center gap-2">
-                    <motion.div
-                      initial={{ height: 0 }}
-                      animate={{ height: `${Math.max(1, (attempt.score / chartUpperBound) * 100)}%` }}
-                      transition={{ ease: "easeOut", duration: 1, delay: 0.1 }}
-                      className="w-10 sm:w-16 bg-[#fed7aa] rounded-t-[0.7rem] outline outline-1 outline-[#fdba74] shadow-sm transform origin-bottom"
-                      style={{ bottom: 0 }}
-                    />
-                    <span className="absolute -bottom-6 text-[10px] sm:text-[11px] font-bold tracking-wide text-slate-500">You</span>
-                  </div>
-
-                  <div className="relative z-10 flex flex-col items-center gap-2">
-                    <motion.div
-                      initial={{ height: 0 }}
-                      animate={{ height: `${Math.max(1, (topperScore / chartUpperBound) * 100)}%` }}
-                      transition={{ ease: "backOut", duration: 0.9, delay: 0.2 }}
-                      className="w-10 sm:w-16 bg-[#ff5722] rounded-t-[0.7rem] shadow-md outline outline-2 outline-[#ff5722] transform origin-bottom"
-                      style={{ bottom: 0 }}
-                    />
-                    <span className="absolute -bottom-6 text-[10px] sm:text-[11px] font-bold tracking-wide text-slate-800">Topper</span>
-                  </div>
-
-                  <div className="relative z-10 flex flex-col items-center gap-2">
-                    <motion.div
-                      initial={{ height: 0 }}
-                      animate={{ height: `${Math.max(1, (avgScore / chartUpperBound) * 100)}%` }}
-                      transition={{ ease: "easeOut", duration: 1.1, delay: 0.15 }}
-                      className="w-10 sm:w-16 bg-[#fbbf24] rounded-t-[0.7rem] shadow-sm outline outline-2 outline-[#f59e0b] transform origin-bottom"
-                      style={{ bottom: 0 }}
-                    />
-                    <span className="absolute -bottom-6 text-[10px] sm:text-[11px] font-bold tracking-wide text-slate-500">Average</span>
-                  </div>
-                </div>
+                )}
               </div>
             ) : (
               <div className="bg-white rounded-[1.75rem] shadow-[0_4px_20px_-4px_rgba(255,87,34,0.1)] outline outline-1 outline-[#ff5722]/10 overflow-hidden p-6 mt-2 relative hover:shadow-[0_8px_30px_-4px_rgba(255,87,34,0.15)] hover:outline-[#ff5722]/20 transition-all">

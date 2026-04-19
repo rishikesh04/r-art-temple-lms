@@ -1,29 +1,30 @@
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import {
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Area,
-  AreaChart,
-} from 'recharts';
+import { motion, AnimatePresence } from 'framer-motion';
+import axiosInstance from '../../utils/axiosInstance';
+import PerformanceTrendGraph from '../../components/PerformanceTrendGraph';
+
+export type AttemptPoint = {
+  attemptId: string;
+  testTitle: string;
+  testSubject: string;
+  score: number;
+  totalQuestions: number;
+  scorePercent: number;
+  submittedAt: string;
+  displayDate: string;
+};
+
 import {
   ChevronLeft,
-  TrendingUp,
-  TrendingDown,
   Target,
   Trophy,
-  Zap,
   Clock,
   AlertCircle,
   CheckCircle2,
-  ArrowRight,
+  Zap,
 } from 'lucide-react';
-import axiosInstance from '../../utils/axiosInstance';
 
 /* ──────────────────── types ──────────────────── */
 type Attempt = {
@@ -107,7 +108,6 @@ export default function PerformancePage() {
         avgPct: 0,
         bestPct: 0,
         latestPct: 0,
-        trend: 0,
         streakScore: 0,
       };
 
@@ -116,11 +116,15 @@ export default function PerformancePage() {
         new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime(),
     );
 
-    const chartData = sorted.map((a, i) => ({
-      id: a.id,
-      name: shortDate(a.submittedAt),
-      testLabel: a.test?.title || `Test ${i + 1}`,
-      score: pct(a.score!, a.totalQuestions!),
+    const chartData: AttemptPoint[] = sorted.map((a, i) => ({
+      attemptId: a.id,
+      testTitle: a.test?.title || `Test ${i + 1}`,
+      testSubject: a.test?.subject || 'General',
+      score: a.score!,
+      totalQuestions: a.totalQuestions!,
+      scorePercent: pct(a.score!, a.totalQuestions!),
+      submittedAt: a.submittedAt,
+      displayDate: shortDate(a.submittedAt),
     }));
 
     const pcts = sorted.map((a) => pct(a.score!, a.totalQuestions!));
@@ -128,28 +132,27 @@ export default function PerformancePage() {
     const bestPct = Math.max(...pcts);
     const latestPct = pcts[pcts.length - 1];
 
-    const recentSlice = pcts.slice(-3);
-    const earlySlice = pcts.slice(0, 3);
-    const recentAvg = recentSlice.reduce((s, v) => s + v, 0) / recentSlice.length;
-    const earlyAvg = earlySlice.reduce((s, v) => s + v, 0) / earlySlice.length;
-    const trend = Math.round(recentAvg - earlyAvg);
-
-    let streakScore = 0;
-    for (let i = pcts.length - 1; i >= 0; i--) {
-      if (pcts[i] >= 70) streakScore++;
-      else break;
-    }
+    const streakScore = pcts.slice().reverse().findIndex(p => p < 70);
+    const finalStreak = streakScore === -1 ? pcts.length : streakScore;
 
     return {
       chartData,
-      totalTests: sorted.length,
+      totalTests: chartData.length,
       avgPct,
       bestPct,
       latestPct,
-      trend,
-      streakScore,
+      streakScore: finalStreak,
     };
   }, [attemptsData]);
+
+  const analyticsSafe = analytics || {
+    chartData: [],
+    totalTests: 0,
+    avgPct: 0,
+    bestPct: 0,
+    latestPct: 0,
+    streakScore: 0,
+  };
 
   if (loadingAttempts || loadingTopics) {
     return (
@@ -201,48 +204,14 @@ export default function PerformancePage() {
     totalTests,
     avgPct,
     bestPct,
-    latestPct,
-    trend,
     streakScore,
-  } = analytics;
+  } = analyticsSafe;
 
   // Filter for sufficient data topics
   const sufficientTopics = topicsData?.data?.filter(t => t.status === 'sufficient') || [];
   const weakAreas = sufficientTopics.filter(t => t.accuracy < 60);
   const strongAreas = sufficientTopics.filter(t => t.accuracy >= 75);
   const insufficientCount = topicsData?.data?.filter(t => t.status === 'insufficient').length || 0;
-
-  /* ──── Chart Interaction ──── */
-  const handlePointClick = (data: any) => {
-    if (data && data.id) {
-      navigate(`/attempts/${data.id}`);
-    }
-  };
-
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const d = payload[0].payload;
-      return (
-        <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200 px-5 py-4 min-w-[160px]">
-          <p className="text-[10px] font-black uppercase tracking-widest text-[#ff5722] mb-2">
-            Attempt Details
-          </p>
-          <p className="text-sm font-black text-slate-900 mb-1 leading-tight">
-            {d.testLabel}
-          </p>
-          <div className="flex items-center gap-2 mb-2">
-            <div className="h-1.5 w-1.5 rounded-full bg-[#ff5722]" />
-            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">{d.name}</p>
-          </div>
-          <p className="text-2xl font-black text-slate-900">{d.score}%</p>
-          <p className="mt-2 text-[10px] font-bold text-slate-400 italic">
-            Click point to view full results →
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <div className="min-h-[calc(100vh-88px)] bg-slate-50 px-4 py-8 md:py-12">
@@ -271,94 +240,7 @@ export default function PerformancePage() {
         </div>
 
         {/* ─── Interactive Graph ─── */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.98 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="bg-white rounded-[2.5rem] border border-slate-200 shadow-[0_20px_50px_rgba(0,0,0,0.03)] p-6 md:p-8 mb-8 overflow-hidden relative group"
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-            <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-              Performance Trend
-              <span className="h-5 px-2 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-md flex items-center border border-emerald-100 uppercase tracking-tight">
-                Points Clickable
-              </span>
-            </h3>
-
-            <div className="flex items-center gap-6">
-              <div className="flex flex-col items-end">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Recent Trend</span>
-                <div className={`flex items-center gap-1 font-black ${trend >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                  {trend >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-                  <span>{trend >= 0 ? '+' : ''}{trend}%</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="h-64 md:h-80 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={chartData}
-                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-                onClick={(e) => {
-                  if (e && e.activePayload) handlePointClick(e.activePayload[0].payload);
-                }}
-              >
-                <defs>
-                  <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ff5722" stopOpacity={0.15} />
-                    <stop offset="95%" stopColor="#ff5722" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis
-                  dataKey="name"
-                  tick={{ fontSize: 11, fontWeight: 700, fill: '#94a3b8' }}
-                  axisLine={false}
-                  tickLine={false}
-                  dy={10}
-                />
-                <YAxis
-                  domain={[0, 100]}
-                  tick={{ fontSize: 11, fontWeight: 700, fill: '#94a3b8' }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={v => `${v}%`}
-                />
-                <Tooltip
-                  content={<CustomTooltip />}
-                  cursor={{ stroke: '#ff5722', strokeWidth: 1.5, strokeDasharray: '4 4' }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="score"
-                  stroke="#ff5722"
-                  strokeWidth={4}
-                  fillOpacity={1}
-                  fill="url(#colorScore)"
-                  activeDot={{
-                    r: 8,
-                    fill: '#ff5722',
-                    stroke: '#fff',
-                    strokeWidth: 3,
-                    style: { cursor: 'pointer' },
-                    onClick: (e: any, props: any) => handlePointClick(props.payload)
-                  }}
-                  dot={{
-                    r: 6,
-                    fill: '#fff',
-                    stroke: '#ff5722',
-                    strokeWidth: 3,
-                    style: { cursor: 'pointer' }
-                  }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="absolute bottom-4 right-8 flex items-center gap-1.5 text-[10px] font-bold text-slate-300 pointer-events-none uppercase tracking-widest">
-            Tap a point to view result
-          </div>
-        </motion.div>
+        <PerformanceTrendGraph attempts={chartData} />
 
         {/* ─── Performance Analysis Section ─── */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">

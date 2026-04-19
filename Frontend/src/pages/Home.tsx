@@ -2,13 +2,26 @@ import { motion } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useRef } from 'react';
+import { useAuth } from '../context/AuthContext';
 import InnovationVideo from '../assets/Innovation (1).mp4';
 import Beaker from '../assets/beaker chemistry-bro.svg';
 
 export default function Home() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
   const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  // Auto-redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      if (user.role === 'admin') {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    }
+  }, [user, navigate]);
   const containerVariants: Variants = {
     hidden: { opacity: 0 },
     show: {

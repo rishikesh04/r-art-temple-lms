@@ -96,11 +96,12 @@ export default function StudentLeaderboardPage() {
       );
    }
 
-   if (error || !data?.success) {
+   if (error || (data && !data.success)) {
+      if (isLoading) return null;
       return (
          <div className="min-h-[100dvh] flex items-center justify-center bg-slate-50 p-4">
-            <div className="bg-red-50 text-red-600 px-6 py-4 rounded-2xl border border-red-100">
-               Failed to load leaderboard.
+            <div className="bg-red-50 text-red-600 px-6 py-4 rounded-2xl border border-red-100 font-medium">
+               Failed to load leaderboard. Please try again.
             </div>
          </div>
       );

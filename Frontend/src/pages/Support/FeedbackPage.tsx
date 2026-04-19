@@ -52,7 +52,7 @@ export default function FeedbackPage() {
             onClick={() => navigate('/dashboard')}
             className="w-full bg-[#ff5722] text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-orange-500/30 hover:brightness-105 active:scale-[0.98] transition-all"
           >
-            Back to Dashboard
+            Back to Home
           </button>
         </motion.div>
       </div>

@@ -143,18 +143,18 @@ export function TitleBanner({
 export function HomeFab() {
   return (
     <motion.div
-      className="fixed bottom-5 left-1/2 z-30 w-[min(20rem,calc(100vw-2rem))] -translate-x-1/2 md:left-auto md:right-6 md:w-auto md:translate-x-0"
+      className="fixed bottom-8 left-1/2 z-30 -translate-x-1/2 w-auto"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: 'spring', stiffness: 420, damping: 28, delay: 0.12 }}
     >
-      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
         <Link
           to="/dashboard"
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#ff5722] px-6 py-3.5 text-sm font-semibold text-white shadow-xl shadow-orange-500/35 ring-1 ring-white/25 backdrop-blur-sm"
+          className="flex items-center justify-center gap-3 rounded-2xl bg-[#ff5722] px-8 py-4 text-sm font-bold text-white shadow-2xl shadow-orange-500/40 ring-1 ring-white/20 backdrop-blur-md transition-all hover:brightness-105"
         >
-          <Home className="h-[1.1rem] w-[1.1rem]" strokeWidth={2.2} aria-hidden />
-          Home
+          <Home className="h-5 w-5 text-white" strokeWidth={2.5} aria-hidden />
+          <span>Back to Home</span>
         </Link>
       </motion.div>
     </motion.div>
